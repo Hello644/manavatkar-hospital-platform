@@ -211,3 +211,27 @@ class CancelDayForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["doctor"].queryset = active_doctors()
+
+
+class RedirectQueueForm(forms.Form):
+    from_doctor = forms.ModelChoiceField(
+        queryset=DoctorProfile.objects.none(), label="From doctor (absent)"
+    )
+    to_doctor = forms.ModelChoiceField(
+        queryset=DoctorProfile.objects.none(), label="Redirect today's queue to"
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["from_doctor"].queryset = active_doctors()
+        self.fields["to_doctor"].queryset = active_doctors()
+
+    def clean(self):
+        cleaned = super().clean()
+        if (
+            cleaned.get("from_doctor")
+            and cleaned.get("to_doctor")
+            and cleaned["from_doctor"] == cleaned["to_doctor"]
+        ):
+            self.add_error("to_doctor", "Choose a different doctor.")
+        return cleaned

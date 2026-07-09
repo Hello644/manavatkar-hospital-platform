@@ -82,6 +82,9 @@ class Visit(models.Model):
     disposition = models.CharField(max_length=16, choices=Disposition.choices, blank=True)
     disposition_note = models.CharField(max_length=240, blank=True)
     followup_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Denormalized (visit_date + followup_days) so the front-desk "due" call list
+    # can query it directly. Also the value that prints as a follow-up chip.
+    followup_date = models.DateField(null=True, blank=True, db_index=True)
     referred_to = models.CharField(max_length=180, blank=True)
 
     registered_at = models.DateTimeField(auto_now_add=True)

@@ -377,6 +377,69 @@ class ViewPermissionTests(TestCase):
         self.assertEqual(visit.paid_amount, Decimal("0"))
 
 
+class FollowupAndRedirectTests(TestCase):
+    def setUp(self):
+        self.doctor = make_doctor()
+        self.other = make_doctor("drmadhu", "Dr. Madhu", room="B")
+        self.user = make_user("recept", role="receptionist")
+
+    def _visit(self, name):
+        patient = make_patient(name=name, mobile="")
+        patient.no_phone = True
+        patient.save()
+        visit, _receipt = services.create_visit(
+            patient=patient, doctor=self.doctor, user=self.user
+        )
+        return visit
+
+    def test_complete_followup_records_date_and_call_list(self):
+        visit = self._visit("Follow Up")
+        services.start_consult(visit)
+        services.complete(
+            visit, disposition=Visit.Disposition.FOLLOW_UP, followup_days=7
+        )
+        visit.refresh_from_db()
+        self.assertEqual(visit.followup_date, visit.visit_date + timedelta(days=7))
+        due = list(services.followups_due(visit.followup_date, visit.followup_date))
+        self.assertIn(visit, due)
+
+        home = self._visit("Home")
+        services.start_consult(home)
+        services.complete(home, disposition=Visit.Disposition.HOME)
+        home.refresh_from_db()
+        self.assertIsNone(home.followup_date)
+
+    def test_redirect_queue_moves_only_waiting_with_new_tokens(self):
+        first = self._visit("One")
+        second = self._visit("Two")
+        services.call_next(self.doctor)  # 'first' goes into consult, must not move
+        moved = services.redirect_queue(self.doctor, self.other)
+        self.assertEqual([m.pk for m in moved], [second.pk])
+        second.refresh_from_db()
+        first.refresh_from_db()
+        self.assertEqual(second.doctor_id, self.other.pk)
+        self.assertEqual(second.token_label, "B-001")
+        self.assertEqual(first.doctor_id, self.doctor.pk)
+
+    def test_followup_list_view_renders(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("opd:followup_list"))
+        self.assertEqual(response.status_code, 200)
+
+    def test_queue_redirect_view_moves_via_post(self):
+        self._visit("Waiting")
+        self.client.force_login(self.user)
+        response = self.client.post(
+            reverse("opd:queue_redirect"),
+            {"from_doctor": self.doctor.pk, "to_doctor": self.other.pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            Visit.objects.filter(doctor=self.other, visit_date=timezone.localdate()).count(),
+            1,
+        )
+
+
 class DoctorQueueViewTests(TestCase):
     def setUp(self):
         self.doctor = make_doctor()

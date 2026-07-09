@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Follow-ups due{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Follow-ups due</h1>
+    <p>{{ start|date:"l, d M Y" }}{% if span == "week" %} – {{ end|date:"d M Y" }}{% endif %}</p>
+  </div>
+  <form method="get" class="search-row" style="margin:0">
+    <input type="date" name="date" value="{{ start|date:'Y-m-d' }}">
+    <select name="span">
+      <option value="day" {% if span == "day" %}selected{% endif %}>This day</option>
+      <option value="week" {% if span == "week" %}selected{% endif %}>Next 7 days</option>
+    </select>
+    <button class="button" type="submit">Show</button>
+  </form>
+</section>
+
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>Due</th><th>Patient</th><th>Phone</th><th>Doctor</th><th>Last visit</th><th></th></tr></thead>
+    <tbody>
+      {% for visit in followups %}
+        <tr>
+          <td>{{ visit.followup_date|date:"d M Y" }}</td>
+          <td><a href="{% url 'patients:detail' visit.patient.pk %}">{{ visit.patient.full_name }}</a></td>
+          <td>{{ visit.patient.mobile|default:"no phone" }}</td>
+          <td>{{ visit.doctor.display_name }}</td>
+          <td>{{ visit.visit_date|date:"d M Y" }}</td>
+          <td><a class="button" href="{% url 'opd:appointment_create' %}?patient={{ visit.patient.pk }}">Book</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">No follow-ups due for this range.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

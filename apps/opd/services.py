@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -237,7 +239,56 @@ def complete(visit, *, disposition, disposition_note="", followup_days=None, ref
     visit.disposition_note = disposition_note
     visit.followup_days = followup_days
     visit.referred_to = referred_to
+    if disposition == Visit.Disposition.FOLLOW_UP and followup_days:
+        visit.followup_date = visit.visit_date + timedelta(days=followup_days)
+    else:
+        visit.followup_date = None
     visit.completed_at = timezone.now()
     visit.full_clean()
     visit.save()
     return visit
+
+
+def followups_due(start_date, end_date, doctor=None):
+    """Completed follow-up visits whose follow-up date falls in [start, end].
+    Feeds the front-desk 'due today / this week' call list (PLAN §4)."""
+    qs = (
+        Visit.objects.filter(
+            status=Visit.Status.COMPLETED,
+            disposition=Visit.Disposition.FOLLOW_UP,
+            followup_date__range=(start_date, end_date),
+        )
+        .select_related("patient", "doctor")
+        .order_by("followup_date", "doctor__display_name")
+    )
+    if doctor is not None:
+        qs = qs.filter(doctor=doctor)
+    return qs
+
+
+@transaction.atomic
+def redirect_queue(from_doctor, to_doctor, on_date=None):
+    """Move an absent doctor's live queue to another doctor, re-issuing each
+    visit a fresh token in the target doctor's series. Returns the moved visits.
+    Only patients still waiting/held (not in-consult/done) are moved."""
+    if from_doctor.pk == to_doctor.pk:
+        return []
+    on_date = on_date or timezone.localdate()
+    movable_statuses = [
+        Visit.Status.WAITING,
+        Visit.Status.VITALS_DONE,
+        Visit.Status.ON_HOLD,
+        Visit.Status.PARKED,
+    ]
+    visits = list(
+        Visit.objects.select_for_update()
+        .filter(doctor=from_doctor, visit_date=on_date, status__in=movable_statuses)
+        .order_by("-priority", "skip_count", "registered_at")
+    )
+    for visit in visits:
+        token_number, token_label = next_token(to_doctor, on_date)
+        visit.doctor = to_doctor
+        visit.token_number = token_number
+        visit.token_label = token_label
+        visit.save(update_fields=["doctor", "token_number", "token_label"])
+    return visits

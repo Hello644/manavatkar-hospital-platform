@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -17,6 +19,7 @@ from .forms import (
     CancelDayForm,
     CompleteVisitForm,
     QuickUnknownPatientForm,
+    RedirectQueueForm,
     RefundForm,
     VitalsForm,
     WalkInVisitForm,
@@ -256,6 +259,35 @@ def cancel_day(request):
             "Call the patients below.",
         )
     return render(request, "opd/cancel_day.html", {"form": form, "cancelled": cancelled})
+
+
+@role_required(*FRONT_DESK_ROLES)
+def queue_redirect(request):
+    form = RedirectQueueForm(request.POST or None)
+    moved = None
+    if request.method == "POST" and form.is_valid():
+        moved = services.redirect_queue(
+            form.cleaned_data["from_doctor"], form.cleaned_data["to_doctor"]
+        )
+        messages.warning(
+            request,
+            f"Moved {len(moved)} waiting patient(s) to "
+            f"{form.cleaned_data['to_doctor']} with new tokens.",
+        )
+    return render(request, "opd/queue_redirect.html", {"form": form, "moved": moved})
+
+
+@role_required(*FRONT_DESK_ROLES)
+def followup_list(request):
+    start = parse_date_param(request)
+    span = request.GET.get("span", "day")
+    end = start + timedelta(days=6) if span == "week" else start
+    followups = services.followups_due(start, end)
+    return render(
+        request,
+        "opd/followup_list.html",
+        {"followups": followups, "start": start, "end": end, "span": span},
+    )
 
 
 # --------------------------------------------------------------------- nurse

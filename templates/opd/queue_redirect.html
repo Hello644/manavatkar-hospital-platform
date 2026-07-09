@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Redirect a doctor's queue{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Redirect a doctor's queue</h1>
+    <p>Move today's still-waiting patients to another doctor (absent-doctor cover). Each patient is re-issued a token in the new doctor's series; patients already in consult or done are left alone.</p>
+  </div>
+  <a class="button" href="{% url 'opd:queue_board' %}">OPD board</a>
+</section>
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <fieldset>
+    <legend>Cover</legend>
+    <label>{{ form.from_doctor.label }} {{ form.from_doctor.errors }}{{ form.from_doctor }}</label>
+    <label>{{ form.to_doctor.label }} {{ form.to_doctor.errors }}{{ form.to_doctor }}</label>
+  </fieldset>
+  <div class="form-actions">
+    <button class="button primary" type="submit" onclick="return confirm('Move all waiting patients to the other doctor with new tokens?')">Redirect queue</button>
+  </div>
+</form>
+
+{% if moved is not None %}
+  <h2 style="margin-top:24px">Moved {{ moved|length }} patient(s)</h2>
+  <section class="table-wrap">
+    <table>
+      <thead><tr><th>New token</th><th>Patient</th><th>Phone</th></tr></thead>
+      <tbody>
+        {% for visit in moved %}
+          <tr>
+            <td>{{ visit.token_label }}</td>
+            <td>{{ visit.patient.full_name }}</td>
+            <td>{{ visit.patient.mobile|default:"no phone" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3">No waiting patients to move.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+{% endblock %}

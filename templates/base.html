@@ -1,10 +1,10 @@
-{% load static %}
+{% load static i18n %}
 <!doctype html>
-<html lang="en">
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Hospital Platform{% endblock %}</title>
+  <title>{% block title %}{% trans "Hospital Platform" %}{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
 <body>
@@ -12,24 +12,31 @@
     <a class="brand" href="{% url 'dashboard' %}">{{ hospital.name }}</a>
     {% if request.user.is_authenticated %}
       <nav class="nav">
-        <a href="{% url 'patients:list' %}">Patients</a>
-        <a href="{% url 'opd:queue_board' %}">OPD board</a>
-        <a href="{% url 'opd:appointments' %}">Appointments</a>
-        <a href="{% url 'opd:vitals_queue' %}">Vitals</a>
-        {% if request.user.doctor_profile %}
-          <a href="{% url 'opd:doctor_queue' %}">My queue</a>
+        {% if is_clinical_role %}<a href="{% url 'patients:list' %}">{% trans "Patients" %}</a>{% endif %}
+        <a href="{% url 'opd:queue_board' %}">{% trans "OPD board" %}</a>
+        {% if is_receptionist_role or is_admin_role %}
+          <a href="{% url 'opd:appointments' %}">{% trans "Appointments" %}</a>
+          <a href="{% url 'opd:followup_list' %}">{% trans "Follow-ups" %}</a>
         {% endif %}
-        <a href="{% url 'opd:collection_register' %}">Collections</a>
-        <a href="{% url 'opd:display' %}" target="_blank">TV display</a>
-        <a href="{% url 'accounts:pin_switch' %}">Switch user</a>
-        <a href="{% url 'accounts:set_pin' %}">Set PIN</a>
+        {% if is_nurse_role or is_admin_role %}
+          <a href="{% url 'opd:vitals_queue' %}">{% trans "Vitals" %}</a>
+        {% endif %}
+        {% if request.user.doctor_profile %}
+          <a href="{% url 'opd:doctor_queue' %}">{% trans "My queue" %}</a>
+        {% endif %}
+        {% if is_receptionist_role or is_admin_role %}
+          <a href="{% url 'opd:collection_register' %}">{% trans "Collections" %}</a>
+        {% endif %}
+        <a href="{% url 'opd:display' %}" target="_blank">{% trans "TV display" %}</a>
+        <a href="{% url 'accounts:pin_switch' %}">{% trans "Switch user" %}</a>
+        <a href="{% url 'accounts:set_pin' %}">{% trans "Set PIN" %}</a>
         {% if request.user.is_staff %}
-          <a href="{% url 'admin:index' %}">Admin</a>
+          <a href="{% url 'admin:index' %}">{% trans "Admin" %}</a>
         {% endif %}
       </nav>
       <form method="post" action="{% url 'logout' %}" class="logout-form">
         {% csrf_token %}
-        <button type="submit">Sign out</button>
+        <button type="submit">{% trans "Sign out" %}</button>
       </form>
     {% endif %}
   </header>
