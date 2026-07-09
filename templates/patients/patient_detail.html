@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ patient.full_name }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>{{ patient.full_name }}</h1>
+    <p>{{ patient.uhid }}</p>
+  </div>
+  <div class="form-actions">
+    <a class="button primary" href="{% url 'opd:new_visit' %}?patient={{ patient.pk }}">Start OPD visit</a>
+    <a class="button" href="{% url 'opd:appointment_create' %}?patient={{ patient.pk }}">Book appointment</a>
+    <a class="button" href="{% url 'patients:update' patient.pk %}">Edit</a>
+  </div>
+</section>
+
+{% if patient.is_unknown or patient.privacy_notice_deferred %}
+  <div class="warning-band">
+    {% if patient.is_unknown %}Registered as unknown patient — update the name once identity is confirmed. {% endif %}
+    {% if patient.privacy_notice_deferred %}Privacy notice deferred ({{ patient.privacy_notice_deferred_reason }}) — complete it when possible.{% endif %}
+  </div>
+{% endif %}
+
+<section class="detail-grid">
+  <div>
+    <h2>Identity</h2>
+    <dl>
+      <dt>Age / sex</dt><dd>{{ patient.get_age_years|default:"-" }} / {{ patient.get_sex_display }}</dd>
+      <dt>Mobile</dt><dd>{{ patient.mobile|default:"No phone" }}</dd>
+      <dt>Old file no.</dt><dd>{{ patient.old_file_number|default:"-" }}</dd>
+      <dt>Language</dt><dd>{{ patient.get_preferred_language_display }}</dd>
+    </dl>
+  </div>
+  <div>
+    <h2>Address</h2>
+    <dl>
+      <dt>Address</dt><dd>{{ patient.address_line|default:"-" }}</dd>
+      <dt>Area</dt><dd>{{ patient.area_village|default:"-" }}</dd>
+      <dt>City</dt><dd>{{ patient.city|default:"-" }}</dd>
+      <dt>District</dt><dd>{{ patient.district|default:"-" }}</dd>
+    </dl>
+  </div>
+  <div>
+    <h2>Guardian</h2>
+    <dl>
+      <dt>Name</dt><dd>{{ patient.guardian_name|default:"-" }}</dd>
+      <dt>Relationship</dt><dd>{{ patient.guardian_relationship|default:"-" }}</dd>
+    </dl>
+  </div>
+  <div>
+    <h2>Consent</h2>
+    <dl>
+      <dt>Notice</dt><dd>{{ patient.privacy_notice_version|default:"-" }}</dd>
+      <dt>Accepted</dt><dd>{{ patient.privacy_notice_accepted_at|date:"d M Y H:i"|default:"Deferred" }}</dd>
+    </dl>
+  </div>
+</section>
+
+<h2 style="margin-top:24px">Visit history</h2>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>Date</th><th>Token</th><th>Doctor</th><th>Status</th><th>Outcome</th></tr></thead>
+    <tbody>
+      {% for visit in patient.visits.all|slice:":15" %}
+        <tr>
+          <td>{{ visit.visit_date|date:"d-M-y" }}</td>
+          <td><a href="{% url 'opd:visit_detail' visit.pk %}">{{ visit.token_label }}</a>{% if visit.is_mlc %} <span class="badge danger">MLC</span>{% endif %}</td>
+          <td>{{ visit.doctor.display_name }}</td>
+          <td>{{ visit.get_status_display }}</td>
+          <td>{{ visit.get_disposition_display|default:"-" }}{% if visit.followup_days %} · review in {{ visit.followup_days }}d{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">No visits yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

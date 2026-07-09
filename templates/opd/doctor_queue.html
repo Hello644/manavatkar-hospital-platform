@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}My queue{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>{{ doctor.display_name }} — queue</h1>
+    <p>{{ queue|length }} waiting · {{ done_count }} done today</p>
+  </div>
+  {% if not now_visit %}
+    <form method="post" action="{% url 'opd:queue_call_next' %}">
+      {% csrf_token %}
+      <input type="hidden" name="doctor_id" value="{{ doctor.pk }}">
+      <button class="button primary" type="submit">Call next</button>
+    </form>
+  {% endif %}
+</section>
+
+{% if now_visit %}
+  <div class="queue-card now-card">
+    <h2>Now: {{ now_visit.token_label }} — {{ now_visit.patient.full_name }}</h2>
+    <div class="form-actions">
+      <a class="button primary" href="{% url 'opd:visit_detail' now_visit.pk %}">Open visit</a>
+      <form method="post" action="{% url 'opd:queue_action' now_visit.pk 'recall' %}">{% csrf_token %}<input type="hidden" name="doctor_id" value="{{ doctor.pk }}"><button type="submit">Re-announce</button></form>
+      <form method="post" action="{% url 'opd:queue_action' now_visit.pk 'hold' %}">{% csrf_token %}<input type="hidden" name="doctor_id" value="{{ doctor.pk }}"><button type="submit">Hold (sent for test)</button></form>
+    </div>
+  </div>
+{% endif %}
+
+<section class="table-wrap" style="margin-top:16px">
+  <table>
+    <thead><tr><th>Token</th><th>Patient</th><th>Vitals</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for visit in queue %}
+        <tr>
+          <td><strong>{{ visit.token_label }}</strong>
+            {% if visit.is_emergency %}<span class="badge danger">EMG</span>{% endif %}
+            {% if visit.skip_count %}<span class="badge">skip ×{{ visit.skip_count }}</span>{% endif %}
+          </td>
+          <td><a href="{% url 'opd:visit_detail' visit.pk %}">{{ visit.patient.full_name }}</a>
+            · {{ visit.patient.get_age_years|default:"-" }}/{{ visit.patient.get_sex_display }}</td>
+          <td>{% if visit.status == "vitals_done" %}✓{% else %}—{% endif %}</td>
+          <td>
+            <div class="form-actions">
+              <form method="post" action="{% url 'opd:queue_action' visit.pk 'start' %}">{% csrf_token %}<input type="hidden" name="doctor_id" value="{{ doctor.pk }}"><button class="button primary" type="submit">Start</button></form>
+              <form method="post" action="{% url 'opd:queue_action' visit.pk 'skip' %}">{% csrf_token %}<input type="hidden" name="doctor_id" value="{{ doctor.pk }}"><button type="submit">Skip</button></form>
+              <form method="post" action="{% url 'opd:queue_action' visit.pk 'no_show' %}">{% csrf_token %}<input type="hidden" name="doctor_id" value="{{ doctor.pk }}"><button type="submit">No-show</button></form>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">Queue is empty.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% if held or parked %}
+  <h2 style="margin-top:24px">Held / parked</h2>
+  <section class="table-wrap">
+    <table>
+      <tbody>
+        {% for visit in held %}
+          <tr>
+            <td><strong>{{ visit.token_label }}</strong> <span class="badge">on hold</span></td>
+            <td>{{ visit.patient.full_name }}</td>
+            <td><form method="post" action="{% url 'opd:queue_action' visit.pk 'resume' %}">{% csrf_token %}<input type="hidden" name="doctor_id" value="{{ doctor.pk }}"><button type="submit">Resume (front)</button></form></td>
+          </tr>
+        {% endfor %}
+        {% for visit in parked %}
+          <tr>
+            <td><strong>{{ visit.token_label }}</strong> <span class="badge">parked</span></td>
+            <td>{{ visit.patient.full_name }}</td>
+            <td>
+              <div class="form-actions">
+                <form method="post" action="{% url 'opd:queue_action' visit.pk 'resume' %}">{% csrf_token %}<input type="hidden" name="doctor_id" value="{{ doctor.pk }}"><button type="submit">Resume</button></form>
+                <form method="post" action="{% url 'opd:queue_action' visit.pk 'no_show' %}">{% csrf_token %}<input type="hidden" name="doctor_id" value="{{ doctor.pk }}"><button type="submit">No-show</button></form>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+<script>if (!document.querySelector('.now-card')) setTimeout(() => window.location.reload(), 15000);</script>
+{% endblock %}

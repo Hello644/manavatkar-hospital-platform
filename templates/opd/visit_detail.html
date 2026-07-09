@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Visit {{ visit.token_label }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>{{ visit.token_label }} — {{ patient.full_name }}</h1>
+    <p>{{ patient.uhid }} · {{ patient.get_age_years|default:"-" }}/{{ patient.get_sex_display }}
+      · {{ visit.doctor.display_name }} · {{ visit.get_status_display }}
+      {% if visit.is_emergency %} · <span class="badge danger">EMERGENCY</span>{% endif %}</p>
+  </div>
+  <div class="form-actions">
+    <a class="button" href="{% url 'opd:slip' visit.pk %}">Slip</a>
+    <a class="button" href="{% url 'patients:detail' patient.pk %}">Patient record</a>
+  </div>
+</section>
+
+{% if allergies %}
+  <div class="banner-danger">
+    ALLERGIES:
+    {% for allergy in allergies %}{{ allergy.substance }} ({{ allergy.get_severity_display }}){% if not forloop.last %}, {% endif %}{% endfor %}
+  </div>
+{% endif %}
+{% if visit.is_mlc %}
+  <div class="warning-band">
+    <strong>Medico-legal case.</strong>
+    {% if visit.mlc_brought_by %} Brought by: {{ visit.mlc_brought_by }}.{% endif %}
+    {% if visit.mlc_police_station %} Police station: {{ visit.mlc_police_station }}.{% endif %}
+    {% if visit.mlc_notes %} {{ visit.mlc_notes }}{% endif %}
+  </div>
+{% endif %}
+
+<div class="detail-grid">
+  <div>
+    <h2>Today's vitals</h2>
+    {% if vitals %}
+      <dl>
+        {% if vitals.weight_kg %}<dt>Weight</dt><dd>{{ vitals.weight_kg }} kg{% if vitals.bmi %} · BMI {{ vitals.bmi }}{% endif %}</dd>{% endif %}
+        {% if vitals.bp_systolic %}<dt>BP</dt><dd>{{ vitals.bp_systolic }}/{{ vitals.bp_diastolic }} mm/Hg</dd>{% endif %}
+        {% if vitals.pulse %}<dt>Pulse</dt><dd>{{ vitals.pulse }}/min</dd>{% endif %}
+        {% if vitals.spo2 %}<dt>SpO2</dt><dd>{{ vitals.spo2 }}%</dd>{% endif %}
+        {% if vitals.temp_f %}<dt>Temp</dt><dd>{{ vitals.temp_f }} °F</dd>{% endif %}
+        {% if vitals.rbs %}<dt>RBS</dt><dd>{{ vitals.rbs }} mg/dL</dd>{% endif %}
+        {% if vitals.lmp_date %}<dt>LMP</dt><dd>{{ vitals.lmp_date }}</dd>{% endif %}
+        {% if vitals.chief_complaint %}<dt>Complaint</dt><dd>{{ vitals.chief_complaint }}</dd>{% endif %}
+      </dl>
+      {% for flag in vitals.flags %}<span class="badge danger">{{ flag }}</span>{% endfor %}
+    {% else %}
+      <p>Not recorded yet.</p>
+    {% endif %}
+    {% if chronic_conditions %}
+      <h2 style="margin-top:14px">Chronic conditions</h2>
+      {% for condition in chronic_conditions %}<span class="badge">{{ condition.name }}</span>{% endfor %}
+    {% endif %}
+  </div>
+
+  <div>
+    <h2>Past visits</h2>
+    {% for past in past_visits %}
+      <p>{{ past.visit_date|date:"d-M-y" }} · {{ past.doctor.display_name }} · {{ past.get_disposition_display }}{% if past.disposition_note %} — {{ past.disposition_note }}{% endif %}</p>
+    {% empty %}
+      <p>First recorded visit.</p>
+    {% endfor %}
+  </div>
+</div>
+
+{% if can_act and visit.status == "in_consult" %}
+  <h2 style="margin-top:24px">Complete visit</h2>
+  <form method="post" action="{% url 'opd:visit_complete' visit.pk %}" class="registry-form">
+    {% csrf_token %}
+    <fieldset>
+      <legend>Disposition</legend>
+      <label>Outcome {{ complete_form.disposition }}</label>
+      <label>Note {{ complete_form.disposition_note }}</label>
+      <label>Follow-up (days) {{ complete_form.followup_days }}</label>
+      <label>Referred to {{ complete_form.referred_to }}</label>
+    </fieldset>
+    <div class="form-actions">
+      <button class="button primary" type="submit" name="complete_and_next" value="1">Complete &amp; call next</button>
+      <button class="button" type="submit">Complete only</button>
+    </div>
+  </form>
+  <p class="muted" style="margin-top:8px">Prescription composer arrives in Phase 2 — until then, write the Rx on the pad as usual.</p>
+{% endif %}
+{% endblock %}

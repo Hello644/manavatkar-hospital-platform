@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Patients{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Patients</h1>
+    <p>{{ patients|length }} shown</p>
+  </div>
+  <a class="button primary" href="{% url 'patients:create' %}">Register patient</a>
+</section>
+
+<form method="get" class="search-row">
+  <input type="search" name="q" value="{{ query }}" placeholder="Search UHID, mobile, or name" autofocus>
+  <button class="button" type="submit">Search</button>
+</form>
+
+<section class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>UHID</th>
+        <th>Name</th>
+        <th>Age / Sex</th>
+        <th>Mobile</th>
+        <th>Area</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for patient in patients %}
+        <tr>
+          <td><a href="{% url 'patients:detail' patient.pk %}">{{ patient.uhid }}</a></td>
+          <td>{{ patient.full_name }}</td>
+          <td>{{ patient.get_age_years|default:"-" }} / {{ patient.get_sex_display }}</td>
+          <td>{{ patient.mobile|default:"No phone" }}</td>
+          <td>{{ patient.area_village|default:patient.city }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">No patients found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
+

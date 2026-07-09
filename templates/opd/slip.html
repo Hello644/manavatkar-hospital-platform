@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}OPD slip {{ visit.token_label }}{% endblock %}
+{% block content %}
+<div class="no-print form-actions" style="margin-bottom:16px">
+  <button class="button primary" onclick="window.print()">Print slip</button>
+  <a class="button" href="{% url 'patients:detail' visit.patient.pk %}">Back to patient</a>
+  <a class="button" href="{% url 'opd:queue_board' %}">OPD board</a>
+</div>
+
+<section class="slip">
+  {% if visit.is_mlc %}<div class="slip-mlc">MLC</div>{% endif %}
+  <header>
+    <strong>Dr. Manavatkar Hospital</strong>
+    <span>"Dattadham", Jamner Road, Bhusawal · (02582) 240520</span>
+  </header>
+  <div class="slip-token">{{ visit.token_label }}</div>
+  <dl>
+    <dt>Patient</dt><dd>{{ visit.patient.full_name }}</dd>
+    <dt>UHID</dt><dd>{{ visit.patient.uhid }}</dd>
+    <dt>Age / Sex</dt><dd>{{ visit.patient.get_age_years|default:"-" }} / {{ visit.patient.get_sex_display }}</dd>
+    <dt>Doctor</dt><dd>{{ visit.doctor.display_name }}{% if visit.doctor.room_label %} · Room {{ visit.doctor.room_label }}{% endif %}</dd>
+    <dt>Date</dt><dd>{{ visit.registered_at|date:"d-M-Y H:i" }}</dd>
+    {% if receipt %}
+      <dt>Receipt</dt><dd>{{ receipt.receipt_no }} · ₹{{ receipt.amount }} ({{ receipt.get_mode_display }})</dd>
+    {% endif %}
+    {% if visit.is_emergency %}<dt>Priority</dt><dd>EMERGENCY</dd>{% endif %}
+  </dl>
+  <footer>कृपया आपल्या टोकन क्रमांकाची वाट पहा · Please wait for your token number</footer>
+</section>
+{% endblock %}

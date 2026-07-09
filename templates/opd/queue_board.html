@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}OPD board{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>OPD board</h1>
+    <p>{{ today|date:"l, d M Y" }} · refreshes automatically</p>
+  </div>
+  <a class="button" href="{% url 'opd:display' %}" target="_blank">Open TV display</a>
+</section>
+
+<div class="queue-columns">
+  {% for column in columns %}
+    <div class="queue-card">
+      <h2>{{ column.doctor.display_name }}{% if column.doctor.room_label %} · Room {{ column.doctor.room_label }}{% endif %}</h2>
+      <p class="queue-now">
+        {% if column.now %}
+          Now: <strong>{{ column.now.token_label }}</strong> — {{ column.now.patient.full_name }}
+        {% else %}
+          <em>No one in consult</em>
+        {% endif %}
+      </p>
+      <table>
+        <tbody>
+          {% for visit in column.queue %}
+            <tr>
+              <td><strong>{{ visit.token_label }}</strong></td>
+              <td>
+                <a href="{% url 'opd:visit_detail' visit.pk %}">{{ visit.patient.full_name }}</a>
+                {% if visit.is_emergency %}<span class="badge danger">EMG</span>{% endif %}
+                {% if visit.status == "vitals_done" %}<span class="badge ok">vitals</span>{% endif %}
+                {% if visit.skip_count %}<span class="badge">skipped ×{{ visit.skip_count }}</span>{% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="2">Queue empty.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="queue-meta">
+        {% if column.held %}On hold: {% for visit in column.held %}{{ visit.token_label }}{% if not forloop.last %}, {% endif %}{% endfor %} · {% endif %}
+        {% if column.parked %}Parked: {% for visit in column.parked %}{{ visit.token_label }}{% if not forloop.last %}, {% endif %}{% endfor %} · {% endif %}
+        Done today: {{ column.done_count }}
+      </p>
+    </div>
+  {% empty %}
+    <p>No doctors configured yet. Add doctor profiles in Admin.</p>
+  {% endfor %}
+</div>
+
+<script>setTimeout(() => window.location.reload(), 10000);</script>
+{% endblock %}

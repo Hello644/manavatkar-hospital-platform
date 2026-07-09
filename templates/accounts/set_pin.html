@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Set PIN{% endblock %}
+{% block content %}
+<section class="auth-panel">
+  <h1>Set PIN</h1>
+  <form method="post" class="stacked-form">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <label>
+      New PIN
+      {{ form.pin }}
+      {{ form.pin.errors }}
+    </label>
+    <label>
+      Confirm PIN
+      {{ form.confirm_pin }}
+      {{ form.confirm_pin.errors }}
+    </label>
+    <button class="button primary" type="submit">Save PIN</button>
+  </form>
+</section>
+{% endblock %}
+

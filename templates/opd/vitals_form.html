@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Vitals — {{ visit.token_label }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Vitals — {{ visit.token_label }}</h1>
+    <p>{{ visit.patient.full_name }} · {{ visit.patient.get_age_years|default:"-" }}/{{ visit.patient.get_sex_display }} · {{ visit.doctor.display_name }}</p>
+  </div>
+  <a class="button" href="{% url 'opd:vitals_queue' %}">Back to vitals queue</a>
+</section>
+
+{% if allergies %}
+  <div class="banner-danger">
+    Allergies on file:
+    {% for allergy in allergies %}{{ allergy.substance }}{% if not forloop.last %}, {% endif %}{% endfor %}
+    — confirm with the patient.
+  </div>
+{% endif %}
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <fieldset>
+    <legend>Measurements</legend>
+    <label>Weight (kg) {{ form.weight_kg.errors }}{{ form.weight_kg }}</label>
+    <label>Height (cm) {{ form.height_cm.errors }}{{ form.height_cm }}</label>
+    <label>BP systolic {{ form.bp_systolic.errors }}{{ form.bp_systolic }}</label>
+    <label>BP diastolic {{ form.bp_diastolic.errors }}{{ form.bp_diastolic }}</label>
+    <label>Pulse /min {{ form.pulse.errors }}{{ form.pulse }}</label>
+    <label>SpO2 % {{ form.spo2.errors }}{{ form.spo2 }}</label>
+    <label>Temp °F {{ form.temp_f.errors }}{{ form.temp_f }}</label>
+    <label>RBS mg/dL {{ form.rbs.errors }}{{ form.rbs }}</label>
+    <label>Pain 0–10 {{ form.pain_score.errors }}{{ form.pain_score }}</label>
+    {% if visit.patient.sex == "F" %}<label>LMP {{ form.lmp_date.errors }}{{ form.lmp_date }}</label>{% endif %}
+  </fieldset>
+  <fieldset>
+    <legend>Complaint</legend>
+    <label>Chief complaint {{ form.chief_complaint.errors }}{{ form.chief_complaint }}</label>
+  </fieldset>
+  <div class="form-actions">
+    <button class="button primary" type="submit">Save vitals</button>
+  </div>
+</form>
+{% endblock %}

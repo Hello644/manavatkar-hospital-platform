@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}New OPD visit{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>New OPD visit</h1>
+    <p>{{ patient.full_name }} · {{ patient.uhid }} · {{ patient.get_age_years|default:"-" }}/{{ patient.get_sex_display }}
+      {% if patient.mobile %} · {{ patient.mobile }}{% endif %}</p>
+  </div>
+  <a class="button" href="{% url 'patients:detail' patient.pk %}">Back to patient</a>
+</section>
+
+{% if patient.is_unknown %}
+  <div class="warning-band">Unknown patient — update identity on the patient record once known.</div>
+{% endif %}
+{% if appointment %}
+  <div class="warning-band">Checking in appointment: {{ appointment.date }} {{ appointment.slot_time|time:"H:i" }} with {{ appointment.doctor }}.</div>
+{% endif %}
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  <input type="hidden" name="patient" value="{{ patient.pk }}">
+  {% if appointment %}<input type="hidden" name="appointment" value="{{ appointment.pk }}">{% endif %}
+  {{ form.non_field_errors }}
+  <fieldset>
+    <legend>Consultation</legend>
+    <label>Doctor {{ form.doctor.errors }}{{ form.doctor }}</label>
+    <label>Fee (₹) {{ form.fee_amount.errors }}{{ form.fee_amount }}</label>
+    <label>Payment {{ form.payment_mode.errors }}{{ form.payment_mode }}</label>
+    <label class="check-row">{{ form.is_emergency }} {{ form.is_emergency.label }}</label>
+  </fieldset>
+  <fieldset>
+    <legend>Medico-legal case</legend>
+    <label class="check-row">{{ form.is_mlc }} {{ form.is_mlc.label }}</label>
+    <label>{{ form.mlc_brought_by.label }} {{ form.mlc_brought_by.errors }}{{ form.mlc_brought_by }}</label>
+    <label>{{ form.mlc_police_station.label }} {{ form.mlc_police_station.errors }}{{ form.mlc_police_station }}</label>
+    <label>{{ form.mlc_notes.label }} {{ form.mlc_notes.errors }}{{ form.mlc_notes }}</label>
+  </fieldset>
+  <div class="form-actions">
+    <button class="button primary" type="submit">Issue token</button>
+  </div>
+</form>
+
+{{ doctor_fees|json_script:"doctor-fees" }}
+<script>
+  const fees = JSON.parse(document.getElementById('doctor-fees').textContent);
+  const doctorSelect = document.getElementById('id_doctor');
+  const feeInput = document.getElementById('id_fee_amount');
+  if (doctorSelect && feeInput) {
+    doctorSelect.addEventListener('change', () => {
+      if (fees[doctorSelect.value] !== undefined) feeInput.value = fees[doctorSelect.value];
+    });
+    if (!feeInput.value && fees[doctorSelect.value] !== undefined) {
+      feeInput.value = fees[doctorSelect.value];
+    }
+  }
+</script>
+{% endblock %}

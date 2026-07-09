@@ -1,0 +1,95 @@
+{% load static %}
+<!doctype html>
+<html lang="mr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dr. Manavatkar Hospital — Token Display</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; }
+    body { background: #0c1420; color: #eef2f5; font-family: system-ui, "Segoe UI", sans-serif; min-height: 100vh; }
+    header { align-items: baseline; background: #10233b; display: flex; justify-content: space-between; padding: 18px 32px; }
+    header h1 { font-size: 30px; }
+    header .clock { font-size: 26px; font-variant-numeric: tabular-nums; }
+    main { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); padding: 28px 32px; }
+    .doc-card { background: #13233a; border-radius: 14px; padding: 24px 26px; }
+    .doc-card h2 { color: #9db4cc; font-size: 24px; margin-bottom: 14px; }
+    .now-token { font-size: 96px; font-weight: 800; letter-spacing: 2px; line-height: 1.1; }
+    .now-token.flash { animation: flash 1s ease-in-out 3; color: #ffd76a; }
+    @keyframes flash { 50% { opacity: 0.15; } }
+    .next { color: #9db4cc; font-size: 24px; margin-top: 14px; }
+    .idle { color: #5c718a; font-size: 40px; }
+    footer { bottom: 0; color: #5c718a; font-size: 18px; padding: 14px 32px; position: fixed; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>डॉ. मानवतकर हॉस्पिटल — टोकन</h1>
+    <div class="clock" id="clock"></div>
+  </header>
+  <main id="board"></main>
+  <footer>कृपया आपला टोकन क्रमांक पहा · Please watch for your token number</footer>
+
+  <script>
+    const seen = {};
+
+    function chime() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.35].forEach((delay, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.frequency.value = i ? 660 : 880;
+          gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.3);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(ctx.currentTime + delay);
+          osc.stop(ctx.currentTime + delay + 0.32);
+        });
+      } catch (err) { /* audio blocked until first user gesture on some devices */ }
+    }
+
+    function render(data) {
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      data.doctors.forEach((doc) => {
+        const key = doc.doctor;
+        const announceKey = (doc.now || '') + '|' + (doc.called_at || '');
+        const isNew = doc.now && seen[key] !== announceKey;
+        seen[key] = announceKey;
+        const card = document.createElement('div');
+        card.className = 'doc-card';
+        card.innerHTML =
+          '<h2>' + doc.doctor + (doc.room ? ' · Room ' + doc.room : '') + '</h2>' +
+          (doc.now
+            ? '<div class="now-token' + (isNew ? ' flash' : '') + '">' + doc.now + '</div>'
+            : '<div class="idle">—</div>') +
+          '<div class="next">' +
+          (doc.next.length ? 'पुढील / Next: ' + doc.next.join(', ') : 'प्रतीक्षा यादी रिकामी') +
+          (doc.waiting_count > 3 ? ' (+' + (doc.waiting_count - 3) + ')' : '') +
+          '</div>';
+        board.appendChild(card);
+        if (isNew) chime();
+      });
+    }
+
+    async function poll() {
+      try {
+        const res = await fetch('{% url "opd:display_data" %}', { cache: 'no-store' });
+        if (res.ok) render(await res.json());
+      } catch (err) { /* server unreachable — keep last board */ }
+    }
+
+    function tick() {
+      document.getElementById('clock').textContent =
+        new Date().toLocaleTimeString('en-IN', { hour12: false });
+    }
+
+    poll();
+    tick();
+    setInterval(poll, 4000);
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hospital-web",
+      "runtimeExecutable": "E:\\New folder\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["manage.py", "runserver", "127.0.0.1:8010", "--noreload"],
+      "port": 8010,
+      "autoPort": false
+    }
+  ]
+}

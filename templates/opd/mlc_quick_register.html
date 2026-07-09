@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Quick register — unknown patient{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Quick register — unknown patient</h1>
+    <p>For unconscious/unidentified emergency patients. Registers as MLC; identity and privacy notice are completed later.</p>
+  </div>
+</section>
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <fieldset>
+    <legend>What is known</legend>
+    <label>Sex {{ form.sex.errors }}{{ form.sex }}</label>
+    <label>Approximate age {{ form.approximate_age.errors }}{{ form.approximate_age }}</label>
+    <label>Identifying note {{ form.identifying_note.errors }}{{ form.identifying_note }}</label>
+  </fieldset>
+  <div class="form-actions">
+    <button class="button primary" type="submit">Register &amp; continue to visit</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p>{{ request.user.get_full_name|default:request.user.username }}</p>
+  </div>
+  <a class="button primary" href="{% url 'patients:create' %}">Register patient</a>
+</section>
+
+<section class="action-grid">
+  <a class="action-tile" href="{% url 'patients:list' %}">
+    <span>Patient registry</span>
+    <strong>Search, register, update</strong>
+  </a>
+  <a class="action-tile" href="{% url 'accounts:pin_switch' %}">
+    <span>Shared desk</span>
+    <strong>Switch by PIN</strong>
+  </a>
+  <a class="action-tile" href="{% url 'admin:index' %}">
+    <span>Admin</span>
+    <strong>Users, roles, doctors</strong>
+  </a>
+</section>
+{% endblock %}
+

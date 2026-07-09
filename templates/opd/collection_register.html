@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Collections — {{ on_date }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Daily collections</h1>
+    <p>{{ on_date|date:"l, d M Y" }}</p>
+  </div>
+  <form method="get" class="search-row" style="margin:0">
+    <input type="date" name="date" value="{{ on_date|date:'Y-m-d' }}">
+    <button class="button" type="submit">Show</button>
+  </form>
+</section>
+
+<div class="action-grid" style="margin-bottom:20px">
+  <div class="action-tile"><span>Cash</span><strong>₹{{ totals.cash }}</strong></div>
+  <div class="action-tile"><span>UPI</span><strong>₹{{ totals.upi }}</strong></div>
+  <div class="action-tile"><span>Total collected</span><strong>₹{{ totals.all }}</strong></div>
+  <div class="action-tile"><span>Refunded</span><strong>₹{{ refunded_total }}</strong></div>
+</div>
+
+<h2>Receipts</h2>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>Receipt</th><th>Token</th><th>Patient</th><th>Doctor</th><th>Amount</th><th>Mode</th><th>By</th><th></th></tr></thead>
+    <tbody>
+      {% for receipt in receipts %}
+        <tr {% if receipt.is_refunded %}style="opacity:.55"{% endif %}>
+          <td>{{ receipt.receipt_no }}</td>
+          <td>{{ receipt.visit.token_label }}</td>
+          <td>{{ receipt.visit.patient.full_name }}</td>
+          <td>{{ receipt.visit.doctor.display_name }}</td>
+          <td>₹{{ receipt.amount }}</td>
+          <td>{{ receipt.get_mode_display }}</td>
+          <td>{{ receipt.created_by.get_username|default:"-" }}</td>
+          <td>
+            {% if receipt.is_refunded %}
+              Refunded — {{ receipt.refund_reason }}
+            {% else %}
+              <form method="post" action="{% url 'opd:receipt_refund' receipt.pk %}" onsubmit="return refundReason(this)">
+                {% csrf_token %}
+                <input type="hidden" name="refund_reason" value="">
+                <button type="submit">Refund</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8">No receipts for this day.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<h2 style="margin-top:24px">OPD by doctor</h2>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>Doctor</th><th>Visits</th><th>Completed</th><th>No-show</th></tr></thead>
+    <tbody>
+      {% for row in doctor_counts %}
+        <tr>
+          <td>{{ row.doctor__display_name }}</td>
+          <td>{{ row.total }}</td>
+          <td>{{ row.completed }}</td>
+          <td>{{ row.no_show }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">No visits for this day.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+  function refundReason(form) {
+    const reason = prompt('Reason for refund?');
+    if (reason === null || !reason.trim()) return false;
+    form.querySelector('input[name=refund_reason]').value = reason.trim();
+    return true;
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Cancel a doctor's day{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Cancel a doctor's day</h1>
+    <p>Cancels all booked appointments for the doctor on that date and produces a call list.</p>
+  </div>
+  <a class="button" href="{% url 'opd:appointments' %}">Back to appointments</a>
+</section>
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <fieldset>
+    <legend>Which day</legend>
+    <label>Doctor {{ form.doctor.errors }}{{ form.doctor }}</label>
+    <label>Date {{ form.date.errors }}{{ form.date }}</label>
+    <label>Reason (told to patients) {{ form.reason.errors }}{{ form.reason }}</label>
+  </fieldset>
+  <div class="form-actions">
+    <button class="button primary" type="submit" onclick="return confirm('Cancel ALL booked appointments for this doctor on this date?')">Cancel all booked</button>
+  </div>
+</form>
+
+{% if cancelled is not None %}
+  <h2 style="margin-top:24px">Call list ({{ cancelled|length }})</h2>
+  <section class="table-wrap">
+    <table>
+      <thead><tr><th>Time</th><th>Patient</th><th>Phone</th></tr></thead>
+      <tbody>
+        {% for appointment in cancelled %}
+          <tr>
+            <td>{{ appointment.slot_time|time:"H:i" }}</td>
+            <td>{{ appointment.patient.full_name }}</td>
+            <td>{{ appointment.patient.mobile|default:"no phone" }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="3">Nothing was booked.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+{% endblock %}

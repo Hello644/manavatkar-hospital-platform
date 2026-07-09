@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Appointments{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Appointments</h1>
+    <p>Book from a patient's page → "Book appointment"</p>
+  </div>
+  <a class="button" href="{% url 'opd:cancel_day' %}">Cancel a doctor's day</a>
+</section>
+
+<form method="get" class="search-row">
+  <input type="date" name="date" value="{{ on_date|date:'Y-m-d' }}">
+  <select name="doctor">
+    <option value="">All doctors</option>
+    {% for doctor in doctors %}
+      <option value="{{ doctor.pk }}" {% if selected_doctor == doctor.pk|stringformat:"s" %}selected{% endif %}>{{ doctor.display_name }}</option>
+    {% endfor %}
+  </select>
+  <button class="button" type="submit">Show</button>
+</form>
+
+<section class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Patient</th><th>Doctor</th><th>Status</th><th>Notes</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for appointment in appointments %}
+        <tr>
+          <td>{{ appointment.slot_time|time:"H:i" }}</td>
+          <td>
+            <a href="{% url 'patients:detail' appointment.patient.pk %}">{{ appointment.patient.full_name }}</a>
+            <br><span class="muted">{{ appointment.patient.mobile|default:"no phone" }}</span>
+          </td>
+          <td>{{ appointment.doctor.display_name }}</td>
+          <td>{{ appointment.get_status_display }}</td>
+          <td>{{ appointment.notes }}{% if appointment.cancelled_reason %} — {{ appointment.cancelled_reason }}{% endif %}</td>
+          <td>
+            {% if appointment.status == "booked" %}
+              <div class="form-actions">
+                <a class="button primary" href="{% url 'opd:new_visit' %}?patient={{ appointment.patient.pk }}&appointment={{ appointment.pk }}">Check in</a>
+                <form method="post" action="{% url 'opd:appointment_no_show' appointment.pk %}">{% csrf_token %}<button type="submit">No-show</button></form>
+                <form method="post" action="{% url 'opd:appointment_cancel' appointment.pk %}" onsubmit="return cancelReason(this)">
+                  {% csrf_token %}<input type="hidden" name="reason" value=""><button type="submit">Cancel</button>
+                </form>
+              </div>
+            {% elif appointment.visit %}
+              <a href="{% url 'opd:visit_detail' appointment.visit.pk %}">Token {{ appointment.visit.token_label }}</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6">No appointments for this day.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+  function cancelReason(form) {
+    const reason = prompt('Reason for cancellation?');
+    if (reason === null || !reason.trim()) return false;
+    form.querySelector('input[name=reason]').value = reason.trim();
+    return true;
+  }
+</script>
+{% endblock %}

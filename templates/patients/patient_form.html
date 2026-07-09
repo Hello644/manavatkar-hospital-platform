@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{% if is_create %}Register patient{% else %}Edit patient{% endif %}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>{% if is_create %}Register patient{% else %}Edit patient{% endif %}</h1>
+    {% if patient %}<p>{{ patient.uhid }}</p>{% endif %}
+  </div>
+  <a class="button" href="{% url 'patients:list' %}">Patients</a>
+</section>
+
+{% if duplicates %}
+  <section class="warning-band">
+    <h2>Possible duplicates</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>UHID</th>
+          <th>Name</th>
+          <th>Mobile</th>
+          <th>Age / Sex</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for duplicate in duplicates %}
+          <tr>
+            <td><a href="{% url 'patients:detail' duplicate.pk %}">{{ duplicate.uhid }}</a></td>
+            <td>{{ duplicate.full_name }}</td>
+            <td>{{ duplicate.mobile|default:"No phone" }}</td>
+            <td>{{ duplicate.get_age_years|default:"-" }} / {{ duplicate.get_sex_display }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endif %}
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  <fieldset>
+    <legend>Required</legend>
+    <label>Full name {{ form.full_name }} {{ form.full_name.errors }}</label>
+    <label>Mobile {{ form.mobile }} {{ form.mobile.errors }}</label>
+    <label class="check-row">{{ form.no_phone }} No phone</label>
+    <label>Age {{ form.age_years }} {{ form.age_years.errors }}</label>
+    <label>Date of birth {{ form.dob }} {{ form.dob.errors }}</label>
+    <label>Sex {{ form.sex }} {{ form.sex.errors }}</label>
+    <label class="check-row">{{ form.privacy_notice_accepted }} {{ form.privacy_notice_accepted.label }}</label>
+    {{ form.privacy_notice_accepted.errors }}
+  </fieldset>
+
+  <fieldset>
+    <legend>Minor guardian</legend>
+    <label>Guardian name {{ form.guardian_name }} {{ form.guardian_name.errors }}</label>
+    <label>Relationship {{ form.guardian_relationship }} {{ form.guardian_relationship.errors }}</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Address</legend>
+    <label>Address {{ form.address_line }} {{ form.address_line.errors }}</label>
+    <label>Area / village {{ form.area_village }} {{ form.area_village.errors }}</label>
+    <label>City {{ form.city }} {{ form.city.errors }}</label>
+    <label>District {{ form.district }} {{ form.district.errors }}</label>
+    <label>Pincode {{ form.pincode }} {{ form.pincode.errors }}</label>
+    <label>Old file no. {{ form.old_file_number }} {{ form.old_file_number.errors }}</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Optional</legend>
+    <label>Preferred language {{ form.preferred_language }} {{ form.preferred_language.errors }}</label>
+    <label>ABHA number {{ form.abha_number }} {{ form.abha_number.errors }}</label>
+    <label>ABHA address {{ form.abha_address }} {{ form.abha_address.errors }}</label>
+    <label>Blood group {{ form.blood_group }} {{ form.blood_group.errors }}</label>
+    <label>Email {{ form.email }} {{ form.email.errors }}</label>
+    <label>Aadhaar last 4 {{ form.aadhaar_last4 }} {{ form.aadhaar_last4.errors }}</label>
+    <label>Emergency contact {{ form.emergency_contact_name }} {{ form.emergency_contact_name.errors }}</label>
+    <label>Emergency phone {{ form.emergency_contact_phone }} {{ form.emergency_contact_phone.errors }}</label>
+    <label>Referral source {{ form.referral_source }} {{ form.referral_source.errors }}</label>
+  </fieldset>
+
+  <div class="form-actions">
+    {% if duplicates %}
+      <button class="button primary" type="submit" name="confirm_save" value="1">Save anyway</button>
+    {% else %}
+      <button class="button primary" type="submit">Save</button>
+    {% endif %}
+    <a class="button" href="{% url 'patients:list' %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+

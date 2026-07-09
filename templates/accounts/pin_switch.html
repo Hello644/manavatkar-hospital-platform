@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Switch user{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Switch user</h1>
+    <p>Current user: {{ request.user.get_full_name|default:request.user.username }}</p>
+  </div>
+</section>
+
+<section class="user-grid">
+  {% for user in users %}
+    <form method="post" class="user-tile">
+      {% csrf_token %}
+      <input type="hidden" name="user_id" value="{{ user.pk }}">
+      <strong>{{ user.get_full_name|default:user.username }}</strong>
+      <span>{{ user.primary_role|default:"user" }}</span>
+      <input name="pin" type="password" maxlength="6" minlength="6" inputmode="numeric" autocomplete="off" placeholder="PIN">
+      <button class="button" type="submit">Switch</button>
+      {% if selected_user_id == user.pk|stringformat:"s" %}
+        {{ form.non_field_errors }}
+        {{ form.pin.errors }}
+      {% endif %}
+    </form>
+  {% empty %}
+    <p>No users have a PIN yet.</p>
+  {% endfor %}
+</section>
+{% endblock %}
+

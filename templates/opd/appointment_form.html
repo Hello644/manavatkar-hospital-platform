@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Book appointment{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Book appointment</h1>
+    <p>{{ patient.full_name }} · {{ patient.uhid }} · {{ patient.mobile|default:"no phone" }}</p>
+  </div>
+  <a class="button" href="{% url 'patients:detail' patient.pk %}">Back to patient</a>
+</section>
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  <input type="hidden" name="patient" value="{{ patient.pk }}">
+  {{ form.non_field_errors }}
+  <fieldset>
+    <legend>Slot</legend>
+    <label>Doctor {{ form.doctor.errors }}{{ form.doctor }}</label>
+    <label>Date {{ form.date.errors }}{{ form.date }}</label>
+    <label>Time {{ form.slot_time.errors }}{{ form.slot_time }}</label>
+    <label>Duration (min) {{ form.duration_minutes.errors }}{{ form.duration_minutes }}</label>
+    <label>Notes {{ form.notes.errors }}{{ form.notes }}</label>
+  </fieldset>
+  <div class="form-actions">
+    <button class="button primary" type="submit">Book appointment</button>
+  </div>
+</form>
+{% endblock %}
