@@ -1,19 +1,22 @@
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q, Sum
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import DoctorProfile
+from apps.core.models import HospitalProfile
 from apps.patients.models import Patient
 
 from . import services
+from .escpos import build_token_slip, send_to_printer
 from .forms import (
     AppointmentForm,
     CancelDayForm,
@@ -125,6 +128,29 @@ def visit_slip(request, pk):
     )
     receipt = visit.receipts.filter(is_refunded=False).order_by("created_at").first()
     return render(request, "opd/slip.html", {"visit": visit, "receipt": receipt})
+
+
+@role_required(*CLINICAL_READ_ROLES)
+def token_slip_escpos(request, pk):
+    """Print the token on the thermal printer (server-driven ESC/POS). Streams to
+    a network printer when configured, else returns raw bytes for a spooler."""
+    visit = get_object_or_404(Visit.objects.select_related("patient", "doctor"), pk=pk)
+    payload = build_token_slip(visit, HospitalProfile.get_solo())
+    host = settings.OPD_THERMAL_PRINTER_HOST
+    if host:
+        try:
+            send_to_printer(payload, host, settings.OPD_THERMAL_PRINTER_PORT)
+            messages.success(
+                request, f"Token {visit.token_label} sent to the thermal printer."
+            )
+        except OSError as exc:
+            messages.warning(
+                request, f"Thermal printer unreachable ({exc}). Use the A4 slip instead."
+            )
+        return redirect("opd:slip", pk=visit.pk)
+    response = HttpResponse(payload, content_type="application/octet-stream")
+    response["Content-Disposition"] = f'attachment; filename="token-{visit.token_label}.bin"'
+    return response
 
 
 @role_required(*FRONT_DESK_ROLES)
@@ -493,7 +519,15 @@ def visit_complete(request, pk):
 
 
 def display(request):
-    return render(request, "opd/display.html")
+    return render(
+        request,
+        "opd/display.html",
+        {
+            "announce_enabled": settings.OPD_ANNOUNCE_AUDIO,
+            "announce_lang": settings.OPD_ANNOUNCE_LANG,
+            "announce_base": f"{settings.STATIC_URL}announce/",
+        },
+    )
 
 
 def display_data(request):

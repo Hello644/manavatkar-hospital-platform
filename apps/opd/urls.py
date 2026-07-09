@@ -7,6 +7,7 @@ app_name = "opd"
 urlpatterns = [
     path("visits/new/", views.new_visit, name="new_visit"),
     path("visits/<uuid:pk>/slip/", views.visit_slip, name="slip"),
+    path("visits/<uuid:pk>/token.escpos", views.token_slip_escpos, name="slip_escpos"),
     path("visits/<uuid:pk>/", views.visit_detail, name="visit_detail"),
     path("visits/<uuid:pk>/complete/", views.visit_complete, name="visit_complete"),
     path("visits/<uuid:pk>/action/<slug:action>/", views.queue_action, name="queue_action"),

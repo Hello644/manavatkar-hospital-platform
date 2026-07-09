@@ -3,6 +3,7 @@
 {% block content %}
 <div class="no-print form-actions" style="margin-bottom:16px">
   <button class="button primary" onclick="window.print()">Print slip</button>
+  <a class="button" href="{% url 'opd:slip_escpos' visit.pk %}">Thermal token</a>
   <a class="button" href="{% url 'patients:detail' visit.patient.pk %}">Back to patient</a>
   <a class="button" href="{% url 'opd:queue_board' %}">OPD board</a>
 </div>

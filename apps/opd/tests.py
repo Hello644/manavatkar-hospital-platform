@@ -440,6 +440,52 @@ class FollowupAndRedirectTests(TestCase):
         )
 
 
+class ThermalTokenTests(TestCase):
+    def setUp(self):
+        self.doctor = make_doctor()
+        self.patient = make_patient()
+        self.receptionist = make_user("recept", role="receptionist")
+
+    def test_build_token_slip_is_valid_escpos(self):
+        from apps.core.models import HospitalProfile
+
+        from .escpos import FULL_CUT, INIT, build_token_slip
+
+        visit, _receipt = services.create_visit(
+            patient=self.patient, doctor=self.doctor, user=self.receptionist
+        )
+        payload = build_token_slip(visit, HospitalProfile.get_solo())
+        self.assertIsInstance(payload, bytes)
+        self.assertTrue(payload.startswith(INIT))
+        self.assertTrue(payload.endswith(FULL_CUT))
+        self.assertIn(visit.token_label.encode("ascii"), payload)
+
+    def test_mlc_token_carries_marker(self):
+        from apps.core.models import HospitalProfile
+
+        from .escpos import build_token_slip
+
+        visit, _receipt = services.create_visit(
+            patient=self.patient,
+            doctor=self.doctor,
+            user=self.receptionist,
+            is_mlc=True,
+            mlc_police_station="Bhusawal City PS",
+        )
+        payload = build_token_slip(visit, HospitalProfile.get_solo())
+        self.assertIn(b"MEDICO-LEGAL", payload)
+
+    def test_thermal_endpoint_returns_bytes_when_no_printer(self):
+        visit, _receipt = services.create_visit(
+            patient=self.patient, doctor=self.doctor, user=self.receptionist
+        )
+        self.client.force_login(self.receptionist)
+        response = self.client.get(reverse("opd:slip_escpos", args=[visit.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/octet-stream")
+        self.assertTrue(response.content.startswith(b"\x1b@"))
+
+
 class DoctorQueueViewTests(TestCase):
     def setUp(self):
         self.doctor = make_doctor()

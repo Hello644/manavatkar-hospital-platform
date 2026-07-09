@@ -34,6 +34,31 @@
   <script>
     const seen = {};
 
+    // Pre-generated per-symbol MP3 clips composed on the board (PLAN §4). When
+    // disabled or a clip is missing, fall back to a synthesized chime.
+    const ANNOUNCE = {
+      enabled: {{ announce_enabled|yesno:"true,false" }},
+      lang: "{{ announce_lang }}",
+      base: "{{ announce_base }}",
+    };
+
+    function announce(token) {
+      if (!ANNOUNCE.enabled || !token) { chime(); return; }
+      const symbols = token.replace(/[^A-Za-z0-9]/g, '').toUpperCase().split('');
+      if (!symbols.length) { chime(); return; }
+      const urls = symbols.map((s) => ANNOUNCE.base + ANNOUNCE.lang + '/' + s + '.mp3');
+      let i = 0, failed = false;
+      const audio = new Audio();
+      function fallback() { if (!failed) { failed = true; chime(); } }
+      audio.onended = () => {
+        i += 1;
+        if (i < urls.length && !failed) { audio.src = urls[i]; audio.play().catch(fallback); }
+      };
+      audio.onerror = fallback;
+      audio.src = urls[0];
+      audio.play().catch(fallback);
+    }
+
     function chime() {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -70,7 +95,7 @@
           (doc.waiting_count > 3 ? ' (+' + (doc.waiting_count - 3) + ')' : '') +
           '</div>';
         board.appendChild(card);
-        if (isNew) chime();
+        if (isNew) announce(doc.now);
       });
     }
 

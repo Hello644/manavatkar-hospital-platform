@@ -144,6 +144,18 @@ HOSPITAL_PRIVACY_NOTICE_VERSION = os.environ.get(
 OPD_DEFAULT_SLOT_MINUTES = int(os.environ.get("OPD_DEFAULT_SLOT_MINUTES", "10"))
 OPD_SLOT_CAPACITY = int(os.environ.get("OPD_SLOT_CAPACITY", "1"))
 
+# Thermal token printer (ESC/POS over RAW/JetDirect port 9100). When a host is
+# set the server streams the token straight to the printer; otherwise the
+# endpoint returns the raw bytes for a local spooler.
+OPD_THERMAL_PRINTER_HOST = os.environ.get("OPD_THERMAL_PRINTER_HOST", "")
+OPD_THERMAL_PRINTER_PORT = int(os.environ.get("OPD_THERMAL_PRINTER_PORT", "9100"))
+
+# Waiting-room audio announcements: pre-generated per-symbol MP3 clips composed
+# on the board (PLAN §4, not browser TTS). Off until the clips are generated —
+# the board falls back to a chime. Clips live at static/announce/<lang>/<X>.mp3.
+OPD_ANNOUNCE_AUDIO = env_bool("OPD_ANNOUNCE_AUDIO", default=False)
+OPD_ANNOUNCE_LANG = os.environ.get("OPD_ANNOUNCE_LANG", "mr")
+
 PIN_LENGTH = 6
 PIN_SESSION_TIMEOUT_SECONDS = int(os.environ.get("PIN_SESSION_TIMEOUT_SECONDS", "300"))
 SESSION_COOKIE_AGE = PIN_SESSION_TIMEOUT_SECONDS

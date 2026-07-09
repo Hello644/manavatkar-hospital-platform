@@ -76,25 +76,33 @@ All fixes below are on branch `hardening-audit-fixes`.
   prunes old backups only after a verified-good new one.
 - **`soft_delete(by=...)`** now records who performed the deletion.
 
-## Remaining backlog (not yet built — larger / hardware- or asset-dependent)
+## Backlog built in the follow-up pass
 
-These are genuine Phase-1 deliverables in `PLAN.md §12` that the "Phase 1 OPD
-core" commit does not yet implement. None is a silent-wrong-behaviour bug; they
-are missing features to schedule before the hospital's daily-use go-live.
+The audit's plan-gap items were then implemented (commits after the hardening
+commit):
 
 | Item | Status | Note |
 |---|---|---|
-| Thermal token print (ESC/POS) | MISSING | Only an HTML slip + `window.print()`. Needs the ESC/POS driver + the actual TVS/Epson unit for calibration. |
-| TV MP3 announcements (server-rendered Hindi/Marathi) | MISSING | Current board uses a browser WebAudio chime, which PLAN §4 explicitly forbids ("silently fails offline on cheap Android"). Needs pre-generated per-token MP3 assets served by the board. |
-| Doctor-absence: reschedule + live-queue redirect | PARTIAL | `cancel_day` cancels + produces a call list; reschedule and redirecting the live queue to another doctor are not built. |
-| Follow-up "due today/this week" call list | MISSING | `followup_days` is captured but no front-desk due-list view consumes it. |
-| Deferred-privacy-notice completion workflow | MISSING | `privacy_notice_deferred` is set for unknown patients but no screen completes the notice once identity is known. |
-| i18n scaffolding (LocaleMiddleware / LOCALE_PATHS / `{% trans %}`) | MISSING | `USE_I18N=True` only; PLAN wanted retrofit-avoiding scaffolding from day 1. |
-| Nav role-gating polish | COSMETIC | Nav shows links that now 403 for `pharmacist`/`staff`; functional but should hide them. |
+| Follow-up "due today / next 7 days" call list | **BUILT** | `Visit.followup_date` stored on completion; `opd:followup_list` view + nav link. |
+| Doctor-absence live-queue redirect | **BUILT** | `opd:queue_redirect` re-issues an absent doctor's waiting patients fresh tokens under another doctor; in-consult/done left alone. |
+| Thermal token print (ESC/POS) | **BUILT** (needs on-site printer) | `apps/opd/escpos.py` builds the raw ESC/POS stream; endpoint streams to a network printer (`OPD_THERMAL_PRINTER_HOST`, port 9100) or returns bytes for a spooler. Calibrate against the actual TVS/Epson unit. |
+| TV MP3 announcements | **BUILT** (needs audio assets) | Board composes per-symbol MP3 clips (`static/announce/<lang>/<X>.mp3`) with a chime fallback; `OPD_ANNOUNCE_AUDIO` flag; `manage.py announcement_clips` lists the finite clip set to record. |
+| i18n scaffolding | **BUILT** | `LocaleMiddleware`, `LOCALE_PATHS`, `en/hi/mr` `LANGUAGES`, i18n context processor, `{% trans %}` on nav. String catalogs (`makemessages`/`compilemessages`) still to be filled. |
+| Nav role-gating | **BUILT** | `user_roles` context processor hides links a role can't use. |
+
+## Still open (deliberately deferred)
+
+| Item | Note |
+|---|---|
+| Doctor-absence **reschedule** | `cancel_day` cancels + call list and `queue_redirect` covers today's queue; a per-appointment reschedule flow is still pending. |
+| Deferred-privacy-notice completion | `privacy_notice_deferred` is set for unknown patients but no screen completes the notice once identity is known. |
+| Translation catalogs | i18n machinery is in; the `.po`/`.mo` message files are not yet generated/translated. |
+| Thermal & audio hardware bring-up | The ESC/POS + MP3 code paths exist; they need the physical printer for calibration and the recorded/TTS MP3 clips. |
 
 ## Suggested next steps
 1. Merge this branch after review; run the phased-cutover exit criteria in
    `PLAN.md §11`.
-2. Prioritise the follow-up call list and doctor-day redirect (pure Django, no
-   hardware) before the thermal-print and MP3-announcement work (hardware/assets).
-3. Add the i18n scaffolding now while the template surface is still small.
+2. On-site: set `OPD_THERMAL_PRINTER_HOST`, calibrate the token slip, record the
+   announcement clips (`manage.py announcement_clips`), set `OPD_ANNOUNCE_AUDIO=1`.
+3. Fill translation catalogs and finish the appointment-reschedule +
+   deferred-notice flows.
