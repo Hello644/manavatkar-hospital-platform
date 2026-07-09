@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,8 +15,21 @@ def env_bool(name, default=False):
     return value.lower() in {"1", "true", "yes", "on"}
 
 
+# Secrets that must never reach a live server. If DEBUG is off and one of these
+# is still in use, refuse to boot rather than silently run production with a
+# known key. Generate a real one with:
+#   python -c "import secrets; print(secrets.token_urlsafe(64))"
+INSECURE_SECRETS = {"unsafe-dev-secret-key", "change-this-before-use", ""}
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "unsafe-dev-secret-key")
 DEBUG = env_bool("DJANGO_DEBUG", default=True)
+
+if not DEBUG and SECRET_KEY in INSECURE_SECRETS:
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY is unset or a placeholder while DJANGO_DEBUG is off. "
+        "Set a real secret before running the server: "
+        "python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+    )
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -50,6 +64,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.accounts.middleware.ForcePinChangeMiddleware",
     "auditlog.middleware.AuditlogMiddleware",
 ]
 
@@ -66,6 +81,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.hospital",
             ],
         },
     },
@@ -120,9 +136,18 @@ PIN_SESSION_TIMEOUT_SECONDS = int(os.environ.get("PIN_SESSION_TIMEOUT_SECONDS", 
 SESSION_COOKIE_AGE = PIN_SESSION_TIMEOUT_SECONDS
 SESSION_SAVE_EVERY_REQUEST = True
 
+# Security posture follows DEBUG: a production boot (DEBUG=0, as docker-compose
+# sets) automatically gets secure cookies + TLS redirect without the operator
+# remembering to flip each flag. Caddy terminates TLS and forwards
+# X-Forwarded-Proto, so Django correctly sees requests as secure.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", default=not DEBUG)
 SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_HSTS_SECONDS", "0"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = bool(SECURE_HSTS_SECONDS)
 SECURE_HSTS_PRELOAD = bool(SECURE_HSTS_SECONDS)
-SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", default=False)
-CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", default=False)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+SESSION_COOKIE_SECURE = env_bool("DJANGO_SESSION_COOKIE_SECURE", default=not DEBUG)
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SECURE = env_bool("DJANGO_CSRF_COOKIE_SECURE", default=not DEBUG)

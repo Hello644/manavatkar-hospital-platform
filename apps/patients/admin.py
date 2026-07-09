@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from apps.core.admin_mixins import NoHardDeleteAdminMixin
+
 from .models import ChronicCondition, Patient, PatientAllergy, PatientSequence
 
 
@@ -14,7 +16,7 @@ class ChronicConditionInline(admin.TabularInline):
 
 
 @admin.register(Patient)
-class PatientAdmin(admin.ModelAdmin):
+class PatientAdmin(NoHardDeleteAdminMixin, admin.ModelAdmin):
     inlines = [PatientAllergyInline, ChronicConditionInline]
     list_display = ("uhid", "full_name", "mobile", "sex", "created_at", "is_active")
     list_filter = ("sex", "preferred_language", "is_active", "dob_estimated")

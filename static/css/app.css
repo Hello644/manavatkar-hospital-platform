@@ -394,6 +394,33 @@ dd {
   position: absolute;
   right: 10px;
   top: 10px;
+  z-index: 2;
+}
+
+/* Full diagonal MLC watermark across the whole print (PLAN §4: "MLC watermark
+   on all prints"), in addition to the corner badge. */
+.slip-watermark {
+  color: rgba(163, 50, 50, 0.16);
+  font-size: 40px;
+  font-weight: 800;
+  left: 50%;
+  letter-spacing: 4px;
+  line-height: 1.6;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  white-space: nowrap;
+  z-index: 0;
+}
+
+.slip header,
+.slip-token,
+.slip dl,
+.slip footer {
+  position: relative;
+  z-index: 1;
 }
 
 @media print {

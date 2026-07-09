@@ -20,6 +20,7 @@ def pin_switch(request):
 
     if request.method == "POST" and form.is_valid():
         user = form.cleaned_data["user_id"]
+        user.reset_pin_failures()
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         messages.success(request, f"Switched to {user.get_full_name() or user.username}.")
         return redirect("dashboard")

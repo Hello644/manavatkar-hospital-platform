@@ -55,7 +55,7 @@
 <h2 style="margin-top:24px">OPD by doctor</h2>
 <section class="table-wrap">
   <table>
-    <thead><tr><th>Doctor</th><th>Visits</th><th>Completed</th><th>No-show</th></tr></thead>
+    <thead><tr><th>Doctor</th><th>Visits</th><th>Completed</th><th>No-show</th><th>Revenue</th></tr></thead>
     <tbody>
       {% for row in doctor_counts %}
         <tr>
@@ -63,9 +63,10 @@
           <td>{{ row.total }}</td>
           <td>{{ row.completed }}</td>
           <td>{{ row.no_show }}</td>
+          <td>₹{{ row.revenue|default:"0" }}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="4">No visits for this day.</td></tr>
+        <tr><td colspan="5">No visits for this day.</td></tr>
       {% endfor %}
     </tbody>
   </table>

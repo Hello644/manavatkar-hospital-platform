@@ -8,10 +8,13 @@
 </div>
 
 <section class="slip">
-  {% if visit.is_mlc %}<div class="slip-mlc">MLC</div>{% endif %}
+  {% if visit.is_mlc %}
+    <div class="slip-mlc">MLC</div>
+    <div class="slip-watermark">MEDICO-LEGAL CASE</div>
+  {% endif %}
   <header>
-    <strong>Dr. Manavatkar Hospital</strong>
-    <span>"Dattadham", Jamner Road, Bhusawal · (02582) 240520</span>
+    <strong>{{ hospital.name }}</strong>
+    <span>{{ hospital.address_line }}{% if hospital.phone %} · {{ hospital.phone }}{% endif %}</span>
   </header>
   <div class="slip-token">{{ visit.token_label }}</div>
   <dl>
@@ -25,6 +28,6 @@
     {% endif %}
     {% if visit.is_emergency %}<dt>Priority</dt><dd>EMERGENCY</dd>{% endif %}
   </dl>
-  <footer>कृपया आपल्या टोकन क्रमांकाची वाट पहा · Please wait for your token number</footer>
+  <footer>{{ hospital.slip_footer }}</footer>
 </section>
 {% endblock %}

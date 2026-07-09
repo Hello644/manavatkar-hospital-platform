@@ -1,6 +1,8 @@
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounts.models import DoctorProfile
+
 from .models import (
     PRIORITY_APPOINTMENT,
     PRIORITY_RESUMED,
@@ -118,15 +120,29 @@ def current_consult(doctor, on_date=None):
     )
 
 
+def _lock_doctor(doctor_id):
+    """Serialize consult-promotion for a doctor so the single-consult invariant
+    holds under concurrent tabs / double-submits. Locking absent rows does not
+    work in SQL, so we lock the doctor row itself as the mutex."""
+    return DoctorProfile.objects.select_for_update().get(pk=doctor_id)
+
+
+def _current_in_consult(doctor, on_date):
+    return Visit.objects.filter(
+        doctor=doctor, visit_date=on_date, status=Visit.Status.IN_CONSULT
+    ).first()
+
+
 @transaction.atomic
 def call_next(doctor):
+    on_date = timezone.localdate()
+    _lock_doctor(doctor.pk)
+    if _current_in_consult(doctor, on_date) is not None:
+        # Someone is already in consult; refuse rather than pull a second patient.
+        return None
     visit = (
         Visit.objects.select_for_update()
-        .filter(
-            doctor=doctor,
-            visit_date=timezone.localdate(),
-            status__in=QUEUE_STATUSES,
-        )
+        .filter(doctor=doctor, visit_date=on_date, status__in=QUEUE_STATUSES)
         .order_by("-priority", "skip_count", "registered_at")
         .first()
     )
@@ -146,44 +162,73 @@ def recall(visit):
     return visit
 
 
+@transaction.atomic
 def start_consult(visit):
+    """Promote a specific queued visit into consult. Returns None if another
+    patient is already in consult for that doctor."""
+    _lock_doctor(visit.doctor_id)
+    locked = Visit.objects.select_for_update().get(pk=visit.pk)
+    existing = _current_in_consult(locked.doctor, locked.visit_date)
+    if existing is not None and existing.pk != locked.pk:
+        return None
     now = timezone.now()
-    visit.status = Visit.Status.IN_CONSULT
-    visit.called_at = visit.called_at or now
-    visit.consult_started_at = now
-    visit.save(update_fields=["status", "called_at", "consult_started_at"])
-    return visit
+    locked.status = Visit.Status.IN_CONSULT
+    locked.called_at = locked.called_at or now
+    locked.consult_started_at = now
+    locked.save(update_fields=["status", "called_at", "consult_started_at"])
+    return locked
 
 
+@transaction.atomic
 def skip(visit):
-    visit.skip_count += 1
-    if visit.skip_count >= 2:
-        visit.status = Visit.Status.PARKED
+    locked = Visit.objects.select_for_update().get(pk=visit.pk)
+    if not locked.is_in_queue:
+        return locked
+    locked.skip_count += 1
+    if locked.skip_count >= 2:
+        locked.status = Visit.Status.PARKED
     else:
-        visit.status = (
-            Visit.Status.VITALS_DONE if visit.vitals_at else Visit.Status.WAITING
+        locked.status = (
+            Visit.Status.VITALS_DONE if locked.vitals_at else Visit.Status.WAITING
         )
-    visit.save(update_fields=["skip_count", "status"])
-    return visit
+    locked.save(update_fields=["skip_count", "status"])
+    return locked
 
 
+@transaction.atomic
 def hold(visit):
-    visit.status = Visit.Status.ON_HOLD
-    visit.save(update_fields=["status"])
-    return visit
+    locked = Visit.objects.select_for_update().get(pk=visit.pk)
+    if locked.status != Visit.Status.IN_CONSULT:
+        return locked
+    locked.status = Visit.Status.ON_HOLD
+    locked.save(update_fields=["status"])
+    return locked
 
 
+@transaction.atomic
 def resume(visit):
-    visit.status = Visit.Status.VITALS_DONE if visit.vitals_at else Visit.Status.WAITING
-    visit.priority = max(visit.priority, PRIORITY_RESUMED)
-    visit.save(update_fields=["status", "priority"])
-    return visit
+    locked = Visit.objects.select_for_update().get(pk=visit.pk)
+    if locked.status not in {Visit.Status.ON_HOLD, Visit.Status.PARKED}:
+        return locked
+    locked.status = Visit.Status.VITALS_DONE if locked.vitals_at else Visit.Status.WAITING
+    locked.priority = max(locked.priority, PRIORITY_RESUMED)
+    locked.save(update_fields=["status", "priority"])
+    return locked
 
 
+@transaction.atomic
 def mark_no_show(visit):
-    visit.status = Visit.Status.NO_SHOW
-    visit.save(update_fields=["status"])
-    return visit
+    locked = Visit.objects.select_for_update().get(pk=visit.pk)
+    if locked.status not in {
+        Visit.Status.WAITING,
+        Visit.Status.VITALS_DONE,
+        Visit.Status.PARKED,
+        Visit.Status.ON_HOLD,
+    }:
+        return locked
+    locked.status = Visit.Status.NO_SHOW
+    locked.save(update_fields=["status"])
+    return locked
 
 
 def complete(visit, *, disposition, disposition_note="", followup_days=None, referred_to=""):

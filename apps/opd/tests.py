@@ -12,7 +12,7 @@ from apps.accounts.models import DoctorProfile
 from apps.patients.models import Patient
 
 from . import services
-from .forms import QuickUnknownPatientForm, VitalsForm
+from .forms import AppointmentForm, QuickUnknownPatientForm, VitalsForm, WalkInVisitForm
 from .models import Appointment, Receipt, Visit
 
 User = get_user_model()
@@ -148,6 +148,24 @@ class QueueTests(TestCase):
         queue = list(services.waiting_queue(self.doctor))
         self.assertEqual(queue[0].pk, held.pk)
 
+    def test_emergency_outranks_resumed_hold(self):
+        resumed = self.visit_for("Resumed")
+        services.start_consult(resumed)
+        services.hold(resumed)
+        services.resume(resumed)
+        emergency = self.visit_for("Emergency", is_emergency=True)
+        queue = list(services.waiting_queue(self.doctor))
+        # Patient safety: a flagged emergency must beat a resumed routine hold.
+        self.assertEqual(queue[0].pk, emergency.pk)
+
+    def test_call_next_refuses_second_concurrent_consult(self):
+        first = self.visit_for("First")
+        self.visit_for("Second")
+        called = services.call_next(self.doctor)
+        self.assertEqual(called.pk, first.pk)
+        # A second call while one is already in consult must return nothing.
+        self.assertIsNone(services.call_next(self.doctor))
+
     def test_complete_requires_disposition(self):
         visit = self.visit_for("Complete Me")
         services.start_consult(visit)
@@ -182,6 +200,32 @@ class MlcAndVitalsTests(TestCase):
         self.assertTrue(patient.is_unknown)
         self.assertTrue(patient.privacy_notice_deferred)
         self.assertIn("UNKNOWN", patient.full_name)
+
+    def test_unknown_patient_visit_is_forced_to_mlc(self):
+        qform = QuickUnknownPatientForm(data={"sex": "M", "approximate_age": 40})
+        self.assertTrue(qform.is_valid())
+        patient = qform.build_patient(self.user)
+        patient.full_clean()
+        patient.save()
+        # Desk unchecks MLC and gives no context -> MLC is re-forced and the
+        # medico-legal context becomes mandatory.
+        form = WalkInVisitForm(
+            data={"doctor": self.doctor.pk, "payment_mode": "free", "is_mlc": ""},
+            patient=patient,
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("mlc_brought_by", form.errors)
+        form = WalkInVisitForm(
+            data={
+                "doctor": self.doctor.pk,
+                "payment_mode": "free",
+                "is_mlc": "",
+                "mlc_police_station": "Bhusawal City PS",
+            },
+            patient=patient,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertTrue(form.cleaned_data["is_mlc"])
 
     def test_mlc_visit_requires_context(self):
         patient = make_patient()
@@ -250,6 +294,25 @@ class ViewPermissionTests(TestCase):
     def test_queue_board_requires_login(self):
         response = self.client.get(reverse("opd:queue_board"))
         self.assertEqual(response.status_code, 302)
+
+    def test_clinical_chart_read_is_role_gated(self):
+        visit, _receipt = services.create_visit(
+            patient=self.patient, doctor=self.doctor, user=self.receptionist
+        )
+        detail_url = reverse("opd:visit_detail", args=[visit.pk])
+        slip_url = reverse("opd:slip", args=[visit.pk])
+
+        for role in ("pharmacist", "staff"):
+            user = make_user(f"{role}_user", role=role)
+            self.client.force_login(user)
+            self.assertEqual(self.client.get(detail_url).status_code, 403)
+            self.assertEqual(self.client.get(slip_url).status_code, 403)
+
+        # Clinical/desk roles retain access.
+        self.client.force_login(self.nurse)
+        self.assertEqual(self.client.get(detail_url).status_code, 200)
+        self.client.force_login(self.receptionist)
+        self.assertEqual(self.client.get(slip_url).status_code, 200)
 
     def test_collections_forbidden_for_nurse(self):
         self.client.force_login(self.nurse)
@@ -356,3 +419,56 @@ class DoctorQueueViewTests(TestCase):
         )
         self.visit.refresh_from_db()
         self.assertEqual(self.visit.status, Visit.Status.COMPLETED)
+
+    def test_recall_rejected_for_completed_visit(self):
+        services.start_consult(self.visit)
+        services.complete(self.visit, disposition=Visit.Disposition.HOME)
+        self.visit.refresh_from_db()
+        called_before = self.visit.called_at
+        self.client.force_login(self.doctor.user)
+        self.client.post(reverse("opd:queue_action", args=[self.visit.pk, "recall"]))
+        self.visit.refresh_from_db()
+        # recall must not touch a completed visit's call timestamp.
+        self.assertEqual(self.visit.called_at, called_before)
+        self.assertEqual(self.visit.status, Visit.Status.COMPLETED)
+
+
+class AppointmentFormTests(TestCase):
+    def setUp(self):
+        self.doctor = make_doctor()
+        self.patient = make_patient()
+        self.receptionist = make_user("recept", role="receptionist")
+        self.tomorrow = timezone.localdate() + timedelta(days=1)
+
+    def test_slot_clash_rejected(self):
+        Appointment.objects.create(
+            patient=self.patient,
+            doctor=self.doctor,
+            date=self.tomorrow,
+            slot_time="10:00",
+            created_by=self.receptionist,
+        )
+        form = AppointmentForm(
+            data={
+                "doctor": self.doctor.pk,
+                "date": self.tomorrow.isoformat(),
+                "slot_time": "10:00",
+                "duration_minutes": 10,
+                "notes": "",
+            }
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("slot_time", form.errors)
+
+    def test_past_date_rejected(self):
+        form = AppointmentForm(
+            data={
+                "doctor": self.doctor.pk,
+                "date": (timezone.localdate() - timedelta(days=1)).isoformat(),
+                "slot_time": "10:00",
+                "duration_minutes": 10,
+                "notes": "",
+            }
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("date", form.errors)

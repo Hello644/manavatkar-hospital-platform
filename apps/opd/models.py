@@ -12,13 +12,14 @@ from apps.accounts.models import DoctorProfile
 from apps.patients.models import Patient
 
 
-# Queue order is (-priority, skip_count, registered_at): resumed holds return to
-# the front, emergencies beat appointments, appointments beat walk-ins, and a
-# skipped patient falls behind unskipped patients of the same priority.
+# Queue order is (-priority, skip_count, registered_at): an emergency always
+# comes first (patient safety), then a resumed hold returns to the front of the
+# ordinary queue, then appointments beat walk-ins, and a skipped patient falls
+# behind unskipped patients of the same priority.
 PRIORITY_WALK_IN = 0
 PRIORITY_APPOINTMENT = 1
-PRIORITY_EMERGENCY = 2
-PRIORITY_RESUMED = 3
+PRIORITY_RESUMED = 2
+PRIORITY_EMERGENCY = 3
 
 
 class TokenSequence(models.Model):
@@ -103,7 +104,14 @@ class Visit(models.Model):
             models.UniqueConstraint(
                 fields=["doctor", "visit_date", "token_number"],
                 name="uniq_token_doctor_date",
-            )
+            ),
+            # A doctor can have at most one patient in consult at a time. Backs up
+            # the row-locked guard in services.call_next/start_consult.
+            models.UniqueConstraint(
+                fields=["doctor", "visit_date"],
+                condition=models.Q(status="in_consult"),
+                name="uniq_one_in_consult_per_doctor_day",
+            ),
         ]
         indexes = [models.Index(fields=["visit_date", "status"])]
 

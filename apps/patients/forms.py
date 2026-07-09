@@ -87,9 +87,14 @@ class PatientForm(forms.ModelForm):
 
         effective_age = age_years
         if dob:
-            today = self.instance.created_at.date() if self.instance.pk else None
+            # A Patient's UUID pk is populated by its field default even before
+            # save, so `self.instance.pk` is not a reliable "is this saved?"
+            # flag — use created_at (None until first save). Existing patients
+            # are aged as of their registration date; new ones as of today.
+            created_at = self.instance.created_at
+            reference = created_at.date() if created_at else None
             effective_age = Patient(dob=dob, sex=cleaned.get("sex") or "O").get_age_years(
-                today
+                reference
             )
         if effective_age is not None and effective_age < 18:
             if not cleaned.get("guardian_name"):

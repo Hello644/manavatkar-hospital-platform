@@ -1,14 +1,19 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+
+from apps.accounts.permissions import (
+    CLINICAL_READ_ROLES,
+    PATIENT_MANAGE_ROLES,
+    role_required,
+)
 
 from .forms import PatientForm
 from .models import Patient
 from .services import find_possible_duplicates, normalize_mobile, normalize_name
 
 
-@login_required
+@role_required(*CLINICAL_READ_ROLES)
 def patient_list(request):
     query = (request.GET.get("q") or "").strip()
     patients = Patient.objects.filter(is_active=True)
@@ -28,7 +33,7 @@ def patient_list(request):
     )
 
 
-@login_required
+@role_required(*PATIENT_MANAGE_ROLES)
 def patient_create(request):
     form = PatientForm(request.POST or None, user=request.user)
     duplicates = []
@@ -49,13 +54,13 @@ def patient_create(request):
     )
 
 
-@login_required
+@role_required(*CLINICAL_READ_ROLES)
 def patient_detail(request, pk):
     patient = get_object_or_404(Patient, pk=pk, is_active=True)
     return render(request, "patients/patient_detail.html", {"patient": patient})
 
 
-@login_required
+@role_required(*PATIENT_MANAGE_ROLES)
 def patient_update(request, pk):
     patient = get_object_or_404(Patient, pk=pk, is_active=True)
     form = PatientForm(request.POST or None, instance=patient, user=request.user)

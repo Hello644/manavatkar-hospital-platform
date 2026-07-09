@@ -23,6 +23,7 @@ from .forms import (
 )
 from .models import Appointment, Receipt, Visit
 from .permissions import (
+    CLINICAL_READ_ROLES,
     DOCTOR_ROLES,
     FRONT_DESK_ROLES,
     NURSE_ROLES,
@@ -72,6 +73,7 @@ def new_visit(request):
     form = WalkInVisitForm(
         request.POST or None,
         locked_doctor=appointment.doctor if appointment else None,
+        patient=patient,
         initial={"is_mlc": request.GET.get("mlc") == "1", "is_emergency": request.GET.get("emergency") == "1"},
     )
     if request.method == "POST" and form.is_valid():
@@ -113,7 +115,7 @@ def new_visit(request):
     )
 
 
-@login_required
+@role_required(*CLINICAL_READ_ROLES)
 def visit_slip(request, pk):
     visit = get_object_or_404(
         Visit.objects.select_related("patient", "doctor"), pk=pk
@@ -361,7 +363,7 @@ def get_actionable_visit(request, pk):
 @require_POST
 def queue_action(request, pk, action):
     visit = get_actionable_visit(request, pk)
-    if action == "recall":
+    if action == "recall" and visit.status == Visit.Status.IN_CONSULT:
         services.recall(visit)
         messages.success(request, f"Token {visit.token_label} re-announced.")
     elif action == "skip" and visit.is_in_queue:
@@ -374,11 +376,12 @@ def queue_action(request, pk, action):
         services.resume(visit)
         messages.success(request, f"Token {visit.token_label} back in queue at front.")
     elif action == "start" and visit.is_in_queue:
-        current = services.current_consult(visit.doctor)
-        if current is not None and current.pk != visit.pk:
-            messages.warning(request, f"Finish token {current.token_label} first.")
+        started = services.start_consult(visit)
+        if started is None:
+            messages.warning(
+                request, "Another patient is already in consult. Finish them first."
+            )
             return redirect("opd:doctor_queue")
-        services.start_consult(visit)
         return redirect("opd:visit_detail", pk=visit.pk)
     elif action == "no_show" and visit.status in {
         Visit.Status.WAITING,
@@ -393,7 +396,7 @@ def queue_action(request, pk, action):
     return redirect("opd:doctor_queue")
 
 
-@login_required
+@role_required(*CLINICAL_READ_ROLES)
 def visit_detail(request, pk):
     visit = get_object_or_404(
         Visit.objects.select_related("patient", "doctor"), pk=pk
@@ -509,7 +512,7 @@ def collection_register(request):
     refunded_total = (
         receipts.filter(is_refunded=True).aggregate(total=Sum("amount"))["total"] or 0
     )
-    doctor_counts = (
+    doctor_counts = list(
         Visit.objects.filter(visit_date=on_date)
         .values("doctor__display_name")
         .annotate(
@@ -519,6 +522,18 @@ def collection_register(request):
         )
         .order_by("doctor__display_name")
     )
+    # Doctor-wise revenue (active receipts) — the first report the owner asks for
+    # (PLAN §4). Keyed by the same visit_date as the counts so both share a day.
+    revenue_by_doctor = {
+        row["visit__doctor__display_name"]: row["revenue"]
+        for row in Receipt.objects.filter(
+            visit__visit_date=on_date, is_refunded=False
+        )
+        .values("visit__doctor__display_name")
+        .annotate(revenue=Sum("amount"))
+    }
+    for row in doctor_counts:
+        row["revenue"] = revenue_by_doctor.get(row["doctor__display_name"], 0)
     return render(
         request,
         "opd/collection_register.html",
@@ -549,6 +564,7 @@ def receipt_refund(request, pk):
             update_fields=["is_refunded", "refund_reason", "refunded_at", "refunded_by"]
         )
         messages.success(request, f"Receipt {receipt.receipt_no} refunded.")
+    register_date = timezone.localtime(receipt.created_at).date()
     return redirect(
-        f"{reverse('opd:collection_register')}?date={receipt.created_at.date().isoformat()}"
+        f"{reverse('opd:collection_register')}?date={register_date.isoformat()}"
     )

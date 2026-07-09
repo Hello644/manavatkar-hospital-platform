@@ -157,10 +157,14 @@ class Patient(models.Model):
         age = self.get_age_years()
         return age is not None and age < 18
 
-    def soft_delete(self):
+    def soft_delete(self, by=None):
         self.is_active = False
         self.soft_deleted_at = timezone.now()
-        self.save(update_fields=["is_active", "soft_deleted_at", "updated_at"])
+        fields = ["is_active", "soft_deleted_at", "updated_at"]
+        if by is not None:
+            self.updated_by = by
+            fields.append("updated_by")
+        self.save(update_fields=fields)
 
 
 class PatientAllergy(models.Model):

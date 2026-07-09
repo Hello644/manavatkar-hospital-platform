@@ -28,7 +28,15 @@ class PinSwitchForm(forms.Form):
         cleaned = super().clean()
         user = cleaned.get("user_id")
         pin = cleaned.get("pin")
-        if user and pin and not user.check_pin(pin):
+        if user is None:
+            return cleaned
+        if user.is_pin_locked():
+            raise ValidationError(
+                "Too many incorrect attempts. Try again in a few minutes."
+            )
+        if pin and not user.check_pin(pin):
+            user.register_pin_failure()
+            # Do not leak remaining attempts or whether the account is now locked.
             raise ValidationError("Incorrect PIN.")
         return cleaned
 

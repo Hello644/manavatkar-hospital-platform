@@ -1,5 +1,7 @@
 import re
+from datetime import timedelta
 
+from auditlog.registry import auditlog
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser
@@ -10,6 +12,12 @@ from django.utils import timezone
 
 PIN_RE = re.compile(r"^\d{6}$")
 
+# A 6-digit PIN has only 10^6 combinations, so unlimited online guessing at a
+# shared POS-style desk is a real lateral-privilege-escalation path. Lock the
+# account for a cool-off window after a small number of consecutive failures.
+PIN_MAX_FAILURES = 5
+PIN_LOCKOUT_MINUTES = 5
+
 
 class User(AbstractUser):
     employee_code = models.CharField(max_length=24, unique=True, null=True, blank=True)
@@ -17,6 +25,8 @@ class User(AbstractUser):
     pin_hash = models.CharField(max_length=256, blank=True)
     pin_set_at = models.DateTimeField(null=True, blank=True)
     must_change_pin = models.BooleanField(default=False)
+    failed_pin_attempts = models.PositiveIntegerField(default=0)
+    pin_locked_until = models.DateTimeField(null=True, blank=True)
 
     def set_pin(self, raw_pin):
         if not PIN_RE.match(raw_pin or ""):
@@ -24,11 +34,32 @@ class User(AbstractUser):
         self.pin_hash = make_password(raw_pin)
         self.pin_set_at = timezone.now()
         self.must_change_pin = False
+        self.failed_pin_attempts = 0
+        self.pin_locked_until = None
 
     def check_pin(self, raw_pin):
         if not self.pin_hash:
             return False
         return check_password(raw_pin, self.pin_hash)
+
+    def is_pin_locked(self):
+        return bool(self.pin_locked_until and self.pin_locked_until > timezone.now())
+
+    def register_pin_failure(self):
+        """Count a wrong PIN; lock the account once the threshold is reached."""
+        self.failed_pin_attempts += 1
+        fields = ["failed_pin_attempts"]
+        if self.failed_pin_attempts >= PIN_MAX_FAILURES:
+            self.pin_locked_until = timezone.now() + timedelta(minutes=PIN_LOCKOUT_MINUTES)
+            self.failed_pin_attempts = 0
+            fields.append("pin_locked_until")
+        self.save(update_fields=fields)
+
+    def reset_pin_failures(self):
+        if self.failed_pin_attempts or self.pin_locked_until:
+            self.failed_pin_attempts = 0
+            self.pin_locked_until = None
+            self.save(update_fields=["failed_pin_attempts", "pin_locked_until"])
 
     @property
     def role_names(self):
@@ -85,4 +116,15 @@ class DoctorProfile(models.Model):
             if self.valid_until and day > self.valid_until:
                 return False
         return True
+
+
+# Audit account + prescriber-credential changes (PIN resets, activation, staff
+# flags, registration number, prescribing enablement). Secrets are excluded so
+# their hashes never land in the audit trail; the fact that they changed is
+# still recorded via pin_set_at / last_login being present or the row's history.
+auditlog.register(
+    User,
+    exclude_fields=["password", "pin_hash", "failed_pin_attempts", "pin_locked_until"],
+)
+auditlog.register(DoctorProfile)
 

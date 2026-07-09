@@ -35,12 +35,18 @@ class WalkInVisitForm(forms.Form):
     )
     payment_mode = forms.ChoiceField(choices=PAYMENT_CHOICES, initial=Receipt.Mode.CASH)
 
-    def __init__(self, *args, locked_doctor=None, **kwargs):
+    def __init__(self, *args, locked_doctor=None, patient=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.patient = patient
         self.fields["doctor"].queryset = active_doctors()
         if locked_doctor is not None:
             self.fields["doctor"].initial = locked_doctor
             self.fields["doctor"].disabled = True
+        # An unknown/unconscious patient is always a medico-legal case; the flag
+        # cannot be turned off at the desk.
+        if patient is not None and patient.is_unknown:
+            self.fields["is_mlc"].disabled = True
+            self.fields["is_mlc"].initial = True
         self.fields["doctor"].widget.attrs["data-fees"] = ""
 
     def clean(self):
@@ -52,6 +58,8 @@ class WalkInVisitForm(forms.Form):
             cleaned["fee_amount"] = doctor.consult_fee
         if mode == "free":
             cleaned["fee_amount"] = Decimal("0")
+        if self.patient is not None and self.patient.is_unknown:
+            cleaned["is_mlc"] = True
         if cleaned.get("is_mlc") and not (
             cleaned.get("mlc_brought_by")
             or cleaned.get("mlc_police_station")

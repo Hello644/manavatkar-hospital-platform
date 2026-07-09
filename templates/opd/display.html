@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dr. Manavatkar Hospital — Token Display</title>
+  <title>{{ hospital.name }} — Token Display</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; margin: 0; }
@@ -25,7 +25,7 @@
 </head>
 <body>
   <header>
-    <h1>डॉ. मानवतकर हॉस्पिटल — टोकन</h1>
+    <h1>{{ hospital.name_marathi|default:hospital.name }} — टोकन</h1>
     <div class="clock" id="clock"></div>
   </header>
   <main id="board"></main>

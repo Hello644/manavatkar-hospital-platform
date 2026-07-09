@@ -1,4 +1,8 @@
+from datetime import timedelta
+
+from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from .forms import PatientForm
 from .models import Patient
@@ -60,6 +64,34 @@ class PatientFormTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("guardian_name", form.errors)
+
+    def test_minor_via_dob_requires_guardian(self):
+        data = self.base_data()
+        data["age_years"] = ""
+        data["dob"] = (timezone.localdate() - timedelta(days=10 * 365)).isoformat()
+        form = PatientForm(data=data)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("guardian_name", form.errors)
+
+    def test_adult_via_dob_is_valid(self):
+        data = self.base_data()
+        data["age_years"] = ""
+        data["dob"] = (timezone.localdate() - timedelta(days=30 * 365)).isoformat()
+        form = PatientForm(data=data)
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_model_clean_blocks_minor_without_guardian(self):
+        patient = Patient(
+            full_name="Baby Patil",
+            mobile="9822012399",
+            sex=Patient.Sex.MALE,
+            age_years_at_registration=6,
+            privacy_notice_accepted=True,
+        )
+        with self.assertRaises(ValidationError):
+            patient.full_clean()
 
     def test_mobile_required_unless_no_phone(self):
         data = self.base_data()

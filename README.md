@@ -26,16 +26,32 @@ python manage.py runserver
 
 Open `http://127.0.0.1:8000/`.
 
-## Docker development
+## Docker development / server
 
-Install Docker, then:
+The container always runs with `DJANGO_DEBUG=0` (production posture), which turns
+on secure cookies and TLS redirect and a guard that **refuses to boot with a
+placeholder `SECRET_KEY`**. Before `docker compose up` set a real secret and DB
+password in `.env`:
 
-```powershell
-Copy-Item .env.example .env
+```bash
+cp .env.example .env
+# generate a real secret and paste it into DJANGO_SECRET_KEY:
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+# set POSTGRES_PASSWORD to something private, then:
 docker compose up --build
 ```
 
-The app is served through Caddy at `http://localhost/`. PostgreSQL dumps are written into the `backup_data` Docker volume by the backup sidecar.
+The app is served through Caddy at `https://localhost/` (Caddy's internal CA for
+`localhost`; a real domain gets Let's Encrypt). PostgreSQL dumps are written into
+the `backup_data` volume by the backup sidecar, which verifies each dump and
+prunes old backups only after a good new one exists.
+
+## Security & audit
+
+See [docs/planning/code-audit-2026-07-10.md](docs/planning/code-audit-2026-07-10.md)
+for the hardening audit — access-control/RBAC, PIN lockout, deploy posture,
+audit trail, queue-concurrency fixes — and the remaining Phase-1 backlog
+(thermal print, MP3 announcements, follow-up call list, i18n scaffolding).
 
 ## Phase 0 notes
 

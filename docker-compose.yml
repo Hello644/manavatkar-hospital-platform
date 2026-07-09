@@ -20,9 +20,13 @@ services:
     env_file:
       - .env
     environment:
+      # Force production posture in the container regardless of .env: DEBUG off
+      # (which turns on the secure-secret guard, secure cookies and TLS redirect
+      # in settings.py). Override here only for a deliberate debug build.
+      DJANGO_DEBUG: "0"
       DATABASE_URL: postgres://${POSTGRES_USER:-hospital}:${POSTGRES_PASSWORD:-change-this-db-password}@db:5432/${POSTGRES_DB:-hospital}
       DJANGO_ALLOWED_HOSTS: ${APP_DOMAIN:-localhost},localhost,127.0.0.1,web
-      DJANGO_CSRF_TRUSTED_ORIGINS: http://${APP_DOMAIN:-localhost},https://${APP_DOMAIN:-localhost}
+      DJANGO_CSRF_TRUSTED_ORIGINS: https://${APP_DOMAIN:-localhost}
     depends_on:
       db:
         condition: service_healthy
