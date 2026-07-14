@@ -37,6 +37,9 @@ class OutboundMessage(models.Model):
     body = models.TextField()
     purpose = models.CharField(max_length=16, choices=Purpose.choices, default=Purpose.OTHER)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.QUEUED)
+    scheduled_for = models.DateField(null=True, blank=True)
+    # Idempotency key so re-running reminders / re-booking never double-queues.
+    reference = models.CharField(max_length=120, blank=True, db_index=True)
     error = models.CharField(max_length=240, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,

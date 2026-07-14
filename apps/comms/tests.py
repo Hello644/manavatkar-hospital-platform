@@ -1,12 +1,16 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.models import DoctorProfile
 from apps.opd import services as opd_services
+from apps.opd.models import Visit
 from apps.patients.models import Patient
 from apps.prescriptions.models import Drug
 from apps.prescriptions.services import create_prescription
@@ -15,6 +19,62 @@ from . import services
 from .models import OutboundMessage
 
 User = get_user_model()
+
+
+def _doctor():
+    user = User.objects.create_user(username="drrajesh", password="x")
+    user.groups.add(Group.objects.get(name="doctor"))
+    return DoctorProfile.objects.create(
+        user=user, display_name="Dr. Rajesh", registration_number="80166",
+        prescription_enabled=True, room_label="A", consult_fee=Decimal("200"),
+    )
+
+
+def _patient():
+    return Patient.objects.create(
+        full_name="Sita Patil", mobile="9876543210", sex=Patient.Sex.FEMALE,
+        age_years_at_registration=30, privacy_notice_accepted=True,
+    )
+
+
+class ReminderTests(TestCase):
+    def setUp(self):
+        self.doctor = _doctor()
+        self.patient = _patient()
+        self.receptionist = User.objects.create_user(username="recept", password="x")
+        self.receptionist.groups.add(Group.objects.get(name="receptionist"))
+
+    def test_appointment_booking_queues_confirmation(self):
+        self.client.force_login(self.receptionist)
+        self.client.post(
+            f"{reverse('opd:appointment_create')}?patient={self.patient.pk}",
+            {
+                "doctor": self.doctor.pk,
+                "date": (timezone.localdate() + timedelta(days=1)).isoformat(),
+                "slot_time": "10:00",
+                "duration_minutes": 10,
+                "notes": "",
+            },
+        )
+        self.assertEqual(
+            OutboundMessage.objects.filter(purpose=OutboundMessage.Purpose.APPOINTMENT).count(), 1
+        )
+
+    def test_followup_reminder_command_is_idempotent(self):
+        visit, _ = opd_services.create_visit(
+            patient=self.patient, doctor=self.doctor, user=self.receptionist
+        )
+        visit.status = Visit.Status.COMPLETED
+        visit.disposition = Visit.Disposition.FOLLOW_UP
+        visit.followup_days = 3
+        visit.followup_date = timezone.localdate()
+        visit.save()
+
+        call_command("queue_followup_reminders")
+        call_command("queue_followup_reminders")  # second run must not duplicate
+        self.assertEqual(
+            OutboundMessage.objects.filter(purpose=OutboundMessage.Purpose.FOLLOWUP).count(), 1
+        )
 
 
 class MsisdnTests(TestCase):

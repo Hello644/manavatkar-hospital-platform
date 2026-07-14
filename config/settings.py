@@ -160,6 +160,9 @@ OPD_THERMAL_PRINTER_PORT = int(os.environ.get("OPD_THERMAL_PRINTER_PORT", "9100"
 OPD_ANNOUNCE_AUDIO = env_bool("OPD_ANNOUNCE_AUDIO", default=False)
 OPD_ANNOUNCE_LANG = os.environ.get("OPD_ANNOUNCE_LANG", "mr")
 
+# Default channel for auto-queued appointment/follow-up reminders.
+OPD_REMINDER_CHANNEL = os.environ.get("OPD_REMINDER_CHANNEL", "whatsapp")
+
 PIN_LENGTH = 6
 PIN_SESSION_TIMEOUT_SECONDS = int(os.environ.get("PIN_SESSION_TIMEOUT_SECONDS", "300"))
 SESSION_COOKIE_AGE = PIN_SESSION_TIMEOUT_SECONDS

@@ -219,6 +219,33 @@ def appointment_list(request):
     )
 
 
+def _queue_appointment_confirmation(appointment, user):
+    """Queue a booking confirmation into the outbox (degrades silently offline)."""
+    patient = appointment.patient
+    if not patient.mobile:
+        return
+    from apps.comms import services as comms_services
+    from apps.comms.models import OutboundMessage
+    from apps.core.models import HospitalProfile
+
+    hospital = HospitalProfile.get_solo()
+    body = (
+        f"{hospital.name}: appointment for {patient.full_name} with "
+        f"{appointment.doctor.display_name} on {appointment.date:%d-%b-%Y} at "
+        f"{appointment.slot_time:%H:%M}."
+    )
+    comms_services.queue_message(
+        patient=patient,
+        channel=settings.OPD_REMINDER_CHANNEL,
+        to_number=patient.mobile,
+        body=body,
+        purpose=OutboundMessage.Purpose.APPOINTMENT,
+        user=user,
+        reference=f"appt:{appointment.id}",
+        scheduled_for=appointment.date,
+    )
+
+
 @role_required(*FRONT_DESK_ROLES)
 def appointment_create(request):
     patient = get_object_or_404(
@@ -230,6 +257,7 @@ def appointment_create(request):
         appointment.patient = patient
         appointment.created_by = request.user
         appointment.save()
+        _queue_appointment_confirmation(appointment, request.user)
         messages.success(
             request,
             f"Appointment booked for {patient.full_name} on {appointment.date} "

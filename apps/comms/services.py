@@ -29,7 +29,8 @@ def record_copy_text(rx, hospital):
     return "\n".join(lines)
 
 
-def log_message(*, patient, channel, to_number, body, purpose, status, user=None, error=""):
+def log_message(*, patient, channel, to_number, body, purpose, status, user=None,
+                error="", reference="", scheduled_for=None):
     return OutboundMessage.objects.create(
         patient=patient,
         channel=channel,
@@ -37,16 +38,27 @@ def log_message(*, patient, channel, to_number, body, purpose, status, user=None
         body=body,
         purpose=purpose,
         status=status,
+        reference=reference,
+        scheduled_for=scheduled_for,
         created_by=user,
         error=error,
         sent_at=timezone.now() if status == OutboundMessage.Status.SENT else None,
     )
 
 
-def queue_message(*, patient, channel, to_number, body, purpose, user=None):
+def already_queued(reference):
+    return bool(reference) and OutboundMessage.objects.filter(reference=reference).exists()
+
+
+def queue_message(*, patient, channel, to_number, body, purpose, user=None,
+                  reference="", scheduled_for=None):
     """Queue a message for later delivery (reminders, confirmations). Stays
-    QUEUED until a provider sends it — degrades silently offline."""
+    QUEUED until a provider sends it — degrades silently offline. No-ops if a
+    message with the same reference already exists (idempotent)."""
+    if already_queued(reference):
+        return None
     return log_message(
         patient=patient, channel=channel, to_number=to_number, body=body,
         purpose=purpose, status=OutboundMessage.Status.QUEUED, user=user,
+        reference=reference, scheduled_for=scheduled_for,
     )
