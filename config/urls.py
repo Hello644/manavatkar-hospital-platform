@@ -24,6 +24,7 @@ urlpatterns = [
     path("rx/", include("apps.prescriptions.urls")),
     path("comms/", include("apps.comms.urls")),
     path("lab/", include("apps.lab.urls")),
+    path("pharmacy/", include("apps.pharmacy.urls")),
 ]
 
 if settings.DEBUG:

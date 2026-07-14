@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Dispense — Rx {{ rx.short_id }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Dispense against Rx {{ rx.short_id }}</h1>
+    <p>{{ rx.patient.full_name }} · {{ rx.patient.uhid }}</p>
+  </div>
+  <a class="button" href="{% url 'prescriptions:detail' rx.pk %}">Back</a>
+</section>
+
+<form method="post">
+  {% csrf_token %}
+  <section class="table-wrap">
+    <table>
+      <thead><tr><th>Medicine</th><th>On hand</th><th>Dispense qty</th></tr></thead>
+      <tbody>
+        {% for line in lines %}
+          <tr>
+            <td>{% if line.item.drug %}{{ line.item.drug.label }}{% else %}{{ line.item.drug_text }}{% endif %}</td>
+            <td>{% if line.stock %}{{ line.stock.quantity_on_hand }} {{ line.stock.unit }}{% else %}<span class="muted">not stocked</span>{% endif %}</td>
+            <td>
+              {% if line.stock %}
+                <input name="qty_{{ line.item.pk }}" type="number" min="0" value="{{ line.item.quantity|default:'' }}" style="max-width:90px">
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <div class="form-actions" style="margin-top:12px">
+    <button class="button primary" type="submit">Dispense</button>
+  </div>
+</form>
+{% endblock %}

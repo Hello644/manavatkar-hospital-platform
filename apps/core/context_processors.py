@@ -14,6 +14,7 @@ def user_roles(request):
         "is_doctor_role": False,
         "is_nurse_role": False,
         "is_receptionist_role": False,
+        "is_pharmacist_role": False,
         "is_clinical_role": False,
     }
     if user is not None and user.is_authenticated:
@@ -23,6 +24,7 @@ def user_roles(request):
         ctx["is_doctor_role"] = su or "doctor" in names
         ctx["is_nurse_role"] = su or "nurse" in names
         ctx["is_receptionist_role"] = su or "receptionist" in names
+        ctx["is_pharmacist_role"] = su or "pharmacist" in names
         ctx["is_clinical_role"] = su or bool(
             names & {"doctor", "nurse", "receptionist", "admin"}
         )

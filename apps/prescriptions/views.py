@@ -123,7 +123,7 @@ def formulary_search(request):
     )
 
 
-@role_required("doctor", "nurse", "receptionist", "admin")
+@role_required("doctor", "nurse", "receptionist", "pharmacist", "admin")
 def detail(request, pk):
     rx = get_object_or_404(
         Prescription.objects.select_related("patient", "doctor").prefetch_related("items"),
@@ -132,7 +132,7 @@ def detail(request, pk):
     return render(request, "prescriptions/detail.html", {"rx": rx})
 
 
-@role_required("doctor", "nurse", "receptionist", "admin")
+@role_required("doctor", "nurse", "receptionist", "pharmacist", "admin")
 def print_view(request, pk):
     rx = get_object_or_404(
         Prescription.objects.select_related("patient", "doctor", "visit").prefetch_related(

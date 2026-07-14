@@ -38,6 +38,9 @@ PATIENT_MANAGE_ROLES = (RECEPTIONIST, ADMIN)
 # Who records lab sample collection and enters results.
 LAB_STAFF_ROLES = (NURSE, RECEPTIONIST, ADMIN)
 
+# Who manages drug stock and dispenses.
+PHARMACY_ROLES = (PHARMACIST, ADMIN)
+
 
 def user_in_roles(user, roles):
     if not user.is_authenticated:

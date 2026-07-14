@@ -28,6 +28,9 @@
           <a href="{% url 'opd:collection_register' %}">{% trans "Collections" %}</a>
           <a href="{% url 'comms:outbox' %}">{% trans "Outbox" %}</a>
         {% endif %}
+        {% if is_pharmacist_role or is_admin_role %}
+          <a href="{% url 'pharmacy:stock_list' %}">{% trans "Pharmacy" %}</a>
+        {% endif %}
         <a href="{% url 'opd:display' %}" target="_blank">{% trans "TV display" %}</a>
         <a href="{% url 'accounts:pin_switch' %}">{% trans "Switch user" %}</a>
         <a href="{% url 'accounts:set_pin' %}">{% trans "Set PIN" %}</a>

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Pharmacy stock{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Pharmacy stock</h1>
+    <p>{{ items|length }} item(s) · {{ low_items|length }} low</p>
+  </div>
+</section>
+
+{% if low_items %}
+  <div class="banner-danger">
+    Low stock: {% for i in low_items %}{{ i.name }} ({{ i.quantity_on_hand }}){% if not forloop.last %}, {% endif %}{% endfor %}
+  </div>
+{% endif %}
+
+<h2>Add / receive stock</h2>
+<form method="post" action="{% url 'pharmacy:stock_add' %}" class="search-row" style="flex-wrap:wrap">
+  {% csrf_token %}
+  <select name="drug">
+    <option value="">— formulary drug —</option>
+    {% for d in unstocked_drugs %}<option value="{{ d.id }}">{{ d.label }}</option>{% endfor %}
+  </select>
+  <input name="name" placeholder="or new item name">
+  <input name="quantity" type="number" placeholder="Qty" style="max-width:90px">
+  <input name="reorder_level" type="number" placeholder="Reorder at" style="max-width:110px">
+  <button class="button primary" type="submit">Add</button>
+</form>
+
+<section class="table-wrap" style="margin-top:16px">
+  <table>
+    <thead><tr><th>Item</th><th>On hand</th><th>Reorder at</th><th>Adjust</th></tr></thead>
+    <tbody>
+      {% for item in items %}
+        <tr {% if item.is_low %}style="background:#fbeaea"{% endif %}>
+          <td>{{ item.name }}{% if item.is_low %} <span class="badge danger">low</span>{% endif %}</td>
+          <td>{{ item.quantity_on_hand }} {{ item.unit }}</td>
+          <td>{{ item.reorder_level }}</td>
+          <td>
+            <form method="post" action="{% url 'pharmacy:stock_move' item.pk %}" class="search-row" style="margin:0">
+              {% csrf_token %}
+              <input name="change" type="number" placeholder="+/-" style="max-width:80px" required>
+              <select name="reason">
+                <option value="receive">Received</option>
+                <option value="adjust">Adjustment</option>
+                <option value="return">Return</option>
+              </select>
+              <button class="button" type="submit">Apply</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">No stock items yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
