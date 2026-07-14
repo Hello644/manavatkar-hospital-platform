@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "apps.comms",
     "apps.lab",
     "apps.pharmacy",
+    "apps.assist",
 ]
 
 MIDDLEWARE = [
@@ -166,6 +167,12 @@ OPD_REMINDER_CHANNEL = os.environ.get("OPD_REMINDER_CHANNEL", "whatsapp")
 # Video teleconsult (Jitsi Meet). Public server needs no key; a self-hosted
 # Jitsi domain can be set for privacy.
 OPD_JITSI_DOMAIN = os.environ.get("OPD_JITSI_DOMAIN", "meet.jit.si")
+
+# AI clinical assistant (Anthropic). OFF by default — it sends de-identified
+# clinical context to an external model, so it is opt-in and needs a key.
+OPD_AI_ENABLED = env_bool("OPD_AI_ENABLED", default=False)
+OPD_AI_MODEL = os.environ.get("OPD_AI_MODEL", "claude-opus-4-8")
+OPD_ANTHROPIC_API_KEY = os.environ.get("OPD_ANTHROPIC_API_KEY", "")
 
 PIN_LENGTH = 6
 PIN_SESSION_TIMEOUT_SECONDS = int(os.environ.get("PIN_SESSION_TIMEOUT_SECONDS", "300"))

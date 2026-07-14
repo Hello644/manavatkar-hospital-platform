@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}AI assistant — {{ visit.token_label }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>AI assistant</h1>
+    <p>{{ visit.token_label }} · {{ visit.patient.full_name }} · {{ visit.patient.uhid }}</p>
+  </div>
+  <a class="button" href="{% url 'opd:visit_detail' visit.pk %}">Back to visit</a>
+</section>
+
+<div class="warning-band">
+  Decision-support only — <strong>review before use</strong>; not a diagnosis. De-identified
+  clinical context (age/sex + findings, no name/UHID/phone) is sent to an external AI model.
+</div>
+
+{% if not available %}
+  <p class="muted">{{ message }}</p>
+{% elif ok %}
+  <section class="table-wrap">
+    <pre id="ai-output" style="white-space:pre-wrap; font: inherit; margin:0">{{ output }}</pre>
+  </section>
+  <div class="form-actions" style="margin-top:12px">
+    <button class="button" type="button" onclick="navigator.clipboard.writeText(document.getElementById('ai-output').innerText)">Copy</button>
+    <a class="button" href="{% url 'opd:consult_note' visit.pk %}">Open clinical note</a>
+  </div>
+{% else %}
+  <p class="banner-danger">{{ output }}</p>
+{% endif %}
+{% endblock %}

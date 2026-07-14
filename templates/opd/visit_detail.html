@@ -68,7 +68,13 @@
   <div class="page-header" style="margin-bottom:10px">
     <h2 style="margin:0">Clinical note</h2>
     {% if can_act %}
-      <a class="button" href="{% url 'opd:consult_note' visit.pk %}">{% if note and not note.is_empty %}Edit note{% else %}Add note{% endif %}</a>
+      <div class="form-actions" style="margin:0">
+        {% if is_doctor_role or is_admin_role %}
+          <a class="button" href="{% url 'assist:assist_visit' visit.pk 'summary' %}">AI summary</a>
+          <a class="button" href="{% url 'assist:assist_visit' visit.pk 'soap' %}">AI: draft SOAP</a>
+        {% endif %}
+        <a class="button" href="{% url 'opd:consult_note' visit.pk %}">{% if note and not note.is_empty %}Edit note{% else %}Add note{% endif %}</a>
+      </div>
     {% endif %}
   </div>
   {% if note and not note.is_empty %}
