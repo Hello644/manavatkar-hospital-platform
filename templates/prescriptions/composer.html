@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Prescription — {{ patient.full_name }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Write prescription</h1>
+    <p>{{ patient.full_name }} · {{ patient.uhid }} · {{ patient.get_age_years|default:"-" }}/{{ patient.get_sex_display }} · Dr. {{ doctor.display_name }}</p>
+  </div>
+  <a class="button" href="{% url 'opd:visit_detail' visit.pk %}">Back to visit</a>
+</section>
+
+{% if allergies %}
+  <div class="banner-danger">
+    ⚠ Known allergies: {% for a in allergies %}{{ a.substance }}{% if not forloop.last %}, {% endif %}{% endfor %}
+  </div>
+{% endif %}
+
+{% if conflicts %}
+  <div class="banner-danger">
+    Allergy conflict detected:
+    {% for substance, drug in conflicts %}<strong>{{ drug }}</strong> vs allergy <strong>{{ substance }}</strong>{% if not forloop.last %}; {% endif %}{% endfor %}.
+    Enter an override reason below to proceed.
+  </div>
+{% endif %}
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  {{ header.non_field_errors }}
+  <fieldset>
+    <legend>Diagnosis & advice</legend>
+    <label>Diagnosis {{ header.diagnosis.errors }}{{ header.diagnosis }}</label>
+    <label>Follow-up (days) {{ header.followup_days.errors }}{{ header.followup_days }}</label>
+    <label style="grid-column:1/-1">Advice {{ header.advice.errors }}{{ header.advice }}</label>
+  </fieldset>
+
+  <h2 style="margin-top:20px">Medicines</h2>
+  <p class="muted">Dosage shorthand like <code>1-0-1</code>, OD/BD/TDS/HS/SOS. Quantity auto-computes. Type any drug not in the formulary as free text.</p>
+  <datalist id="formulary">
+    {% for d in formulary %}<option value="{{ d.label }}"></option>{% endfor %}
+  </datalist>
+
+  <section class="table-wrap">
+    <table>
+      <thead><tr><th>Medicine</th><th>Dosage</th><th>Days</th><th>Instructions</th></tr></thead>
+      <tbody id="rx-rows">
+        {% for row in rows %}
+          <tr>
+            <td><input name="drug_text" list="formulary" value="{{ row.drug_text }}" autocomplete="off"></td>
+            <td><input name="dosage" value="{{ row.dosage }}" style="max-width:110px"></td>
+            <td><input name="duration_days" type="number" min="1" max="365" value="{{ row.duration_days|default:'' }}" style="max-width:80px"></td>
+            <td><input name="instructions" value="{{ row.instructions }}"></td>
+          </tr>
+        {% endfor %}
+        <tr>
+          <td><input name="drug_text" list="formulary" autocomplete="off" placeholder="Drug name"></td>
+          <td><input name="dosage" placeholder="1-0-1" style="max-width:110px"></td>
+          <td><input name="duration_days" type="number" min="1" max="365" style="max-width:80px"></td>
+          <td><input name="instructions" placeholder="after food"></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+  <div class="form-actions" style="margin-top:10px">
+    <button class="button" type="button" onclick="addRow()">+ Add medicine</button>
+  </div>
+
+  {% if conflicts %}
+    <fieldset style="margin-top:16px">
+      <legend>Allergy override</legend>
+      <label style="grid-column:1/-1">Reason (required, logged) {{ header.allergy_override_reason }}</label>
+    </fieldset>
+  {% endif %}
+
+  <div class="form-actions" style="margin-top:16px">
+    <button class="button primary" type="submit">Save prescription</button>
+  </div>
+</form>
+
+<script>
+  function addRow() {
+    const body = document.getElementById('rx-rows');
+    const last = body.rows[body.rows.length - 1];
+    const clone = last.cloneNode(true);
+    clone.querySelectorAll('input').forEach((i) => { i.value = ''; });
+    body.appendChild(clone);
+    clone.querySelector('input').focus();
+  }
+</script>
+{% endblock %}

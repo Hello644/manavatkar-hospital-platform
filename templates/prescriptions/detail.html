@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Prescription {{ rx.short_id }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Prescription {{ rx.short_id }}</h1>
+    <p>{{ rx.patient.full_name }} · {{ rx.patient.uhid }} · {{ rx.created_at|date:"d M Y H:i" }}
+      {% if not rx.is_current %}<span class="badge danger">REVISED</span>{% endif %}</p>
+  </div>
+  <div class="form-actions" style="margin:0">
+    <a class="button primary" href="{% url 'prescriptions:print' rx.pk %}" target="_blank">Print</a>
+    {% if rx.visit_id %}<a class="button" href="{% url 'opd:visit_detail' rx.visit_id %}">Visit</a>{% endif %}
+  </div>
+</section>
+
+{% if rx.diagnosis %}<p><strong>Diagnosis:</strong> {{ rx.diagnosis }}</p>{% endif %}
+
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>#</th><th>Medicine</th><th>Dosage</th><th>Days</th><th>Qty</th><th>Instructions</th></tr></thead>
+    <tbody>
+      {% for item in rx.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{% if item.drug %}{{ item.drug.label }}{% else %}{{ item.drug_text }}{% endif %}</td>
+          <td>{{ item.dosage|default:"-" }}</td>
+          <td>{{ item.duration_days|default:"-" }}</td>
+          <td>{{ item.quantity|default:"-" }}</td>
+          <td>{{ item.instructions|default:"" }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% if rx.advice %}<p style="margin-top:14px"><strong>Advice:</strong> {{ rx.advice }}</p>{% endif %}
+{% if rx.followup_days %}<p><strong>Follow-up:</strong> after {{ rx.followup_days }} day(s)</p>{% endif %}
+{% if rx.allergy_override_reason %}
+  <p class="muted">Allergy override: {{ rx.allergy_override_reason }}</p>
+{% endif %}
+{% endblock %}

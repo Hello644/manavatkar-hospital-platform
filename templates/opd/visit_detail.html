@@ -63,6 +63,26 @@
   </div>
 </div>
 
+<section style="margin-top:20px">
+  <div class="page-header" style="margin-bottom:10px">
+    <h2 style="margin:0">Prescriptions</h2>
+    {% if can_prescribe %}
+      <a class="button primary" href="{% url 'prescriptions:compose' visit.pk %}">Write prescription</a>
+    {% endif %}
+  </div>
+  {% for rx in prescriptions %}
+    <p>
+      <a href="{% url 'prescriptions:detail' rx.pk %}">Rx {{ rx.short_id }}</a>
+      · {{ rx.created_at|date:"d-M-y H:i" }} · {{ rx.items.count }} item(s)
+      {% if rx.diagnosis %} · {{ rx.diagnosis }}{% endif %}
+      {% if not rx.is_current %}<span class="badge danger">revised</span>{% endif %}
+      · <a href="{% url 'prescriptions:print' rx.pk %}" target="_blank">print</a>
+    </p>
+  {% empty %}
+    <p class="muted">No prescription yet for this visit.</p>
+  {% endfor %}
+</section>
+
 {% if can_act and visit.status == "in_consult" %}
   <h2 style="margin-top:24px">Complete visit</h2>
   <form method="post" action="{% url 'opd:visit_complete' visit.pk %}" class="registry-form">
@@ -79,6 +99,5 @@
       <button class="button" type="submit">Complete only</button>
     </div>
   </form>
-  <p class="muted" style="margin-top:8px">Prescription composer arrives in Phase 2 — until then, write the Rx on the pad as usual.</p>
 {% endif %}
 {% endblock %}

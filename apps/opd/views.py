@@ -467,6 +467,12 @@ def visit_detail(request, pk):
         .order_by("-visit_date")[:5]
     )
     complete_form = CompleteVisitForm()
+    can_act = (
+        user_in_roles(request.user, ("admin",))
+        or request.user.is_superuser
+        or getattr(getattr(request.user, "doctor_profile", None), "pk", None)
+        == visit.doctor_id
+    )
     return render(
         request,
         "opd/visit_detail.html",
@@ -477,13 +483,10 @@ def visit_detail(request, pk):
             "allergies": patient.allergies.all(),
             "chronic_conditions": patient.chronic_conditions.all(),
             "past_visits": past_visits,
+            "prescriptions": visit.prescriptions.all(),
             "complete_form": complete_form,
-            "can_act": (
-                user_in_roles(request.user, ("admin",))
-                or request.user.is_superuser
-                or getattr(getattr(request.user, "doctor_profile", None), "pk", None)
-                == visit.doctor_id
-            ),
+            "can_act": can_act,
+            "can_prescribe": can_act and visit.doctor.can_prescribe_on(),
         },
     )
 

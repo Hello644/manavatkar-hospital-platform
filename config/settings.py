@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.patients",
     "apps.opd",
+    "apps.prescriptions",
 ]
 
 MIDDLEWARE = [
