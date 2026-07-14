@@ -1,12 +1,19 @@
+import tempfile
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
+from django.urls import reverse
 from django.utils import timezone
 
 from .forms import PatientForm
-from .models import Patient
+from .models import Patient, PatientDocument
 from .services import generate_uhid, luhn_is_valid
+
+User = get_user_model()
 
 
 class UhidTests(TestCase):
@@ -100,4 +107,45 @@ class PatientFormTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("mobile", form.errors)
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class PatientDocumentTests(TestCase):
+    def setUp(self):
+        self.patient = Patient.objects.create(
+            full_name="Doc Patient", mobile="9812345678", sex=Patient.Sex.MALE,
+            age_years_at_registration=40, privacy_notice_accepted=True,
+        )
+        self.receptionist = User.objects.create_user(username="recept", password="x")
+        self.receptionist.groups.add(Group.objects.get(name="receptionist"))
+        self.pharmacist = User.objects.create_user(username="pharma", password="x")
+        self.pharmacist.groups.add(Group.objects.get(name="pharmacist"))
+
+    def _upload(self, name="report.pdf", content=b"%PDF-1.4 test"):
+        return self.client.post(
+            reverse("patients:document_upload", args=[self.patient.pk]),
+            {"file": SimpleUploadedFile(name, content), "doc_type": "lab", "title": "CBC"},
+        )
+
+    def test_clinical_role_uploads_and_downloads(self):
+        self.client.force_login(self.receptionist)
+        self._upload()
+        doc = PatientDocument.objects.get()
+        self.assertEqual(doc.patient, self.patient)
+        self.assertEqual(doc.uploaded_by, self.receptionist)
+        response = self.client.get(reverse("patients:document_download", args=[doc.id]))
+        self.assertEqual(response.status_code, 200)
+
+    def test_bad_extension_rejected(self):
+        self.client.force_login(self.receptionist)
+        self._upload(name="malware.exe", content=b"MZ")
+        self.assertEqual(PatientDocument.objects.count(), 0)
+
+    def test_pharmacist_cannot_download(self):
+        self.client.force_login(self.receptionist)
+        self._upload()
+        doc = PatientDocument.objects.get()
+        self.client.force_login(self.pharmacist)
+        response = self.client.get(reverse("patients:document_download", args=[doc.id]))
+        self.assertEqual(response.status_code, 403)
 

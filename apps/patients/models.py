@@ -205,6 +205,45 @@ class ChronicCondition(models.Model):
         return self.name
 
 
+def document_upload_path(instance, filename):
+    return f"patient_docs/{instance.patient_id}/{filename}"
+
+
+class PatientDocument(models.Model):
+    class DocType(models.TextChoices):
+        LAB_REPORT = "lab", "Lab report"
+        PRESCRIPTION = "prescription", "Prescription scan"
+        IMAGING = "imaging", "Scan / imaging"
+        DISCHARGE = "discharge", "Discharge / summary"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="documents")
+    visit = models.ForeignKey(
+        "opd.Visit", null=True, blank=True, on_delete=models.SET_NULL, related_name="documents"
+    )
+    file = models.FileField(upload_to=document_upload_path)
+    doc_type = models.CharField(max_length=16, choices=DocType.choices, default=DocType.LAB_REPORT)
+    title = models.CharField(max_length=180, blank=True)
+    notes = models.CharField(max_length=240, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="documents_uploaded",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return self.title or self.file.name.rsplit("/", 1)[-1]
+
+    @property
+    def filename(self):
+        return self.file.name.rsplit("/", 1)[-1]
+
+
 auditlog.register(Patient)
 auditlog.register(PatientAllergy)
 auditlog.register(ChronicCondition)
+auditlog.register(PatientDocument)

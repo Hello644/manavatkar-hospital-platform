@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.db.models import Q
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.accounts.permissions import (
@@ -8,8 +9,8 @@ from apps.accounts.permissions import (
     role_required,
 )
 
-from .forms import PatientForm
-from .models import Patient
+from .forms import PatientDocumentForm, PatientForm
+from .models import Patient, PatientDocument
 from .services import find_possible_duplicates, normalize_mobile, normalize_name
 
 
@@ -57,7 +58,39 @@ def patient_create(request):
 @role_required(*CLINICAL_READ_ROLES)
 def patient_detail(request, pk):
     patient = get_object_or_404(Patient, pk=pk, is_active=True)
-    return render(request, "patients/patient_detail.html", {"patient": patient})
+    return render(
+        request,
+        "patients/patient_detail.html",
+        {
+            "patient": patient,
+            "documents": patient.documents.select_related("visit"),
+            "doc_form": PatientDocumentForm(),
+        },
+    )
+
+
+@role_required(*CLINICAL_READ_ROLES)
+def document_upload(request, pk):
+    patient = get_object_or_404(Patient, pk=pk, is_active=True)
+    if request.method == "POST":
+        form = PatientDocumentForm(request.POST, request.FILES)
+        if form.is_valid():
+            doc = form.save(commit=False)
+            doc.patient = patient
+            doc.uploaded_by = request.user
+            doc.save()
+            messages.success(request, f"Uploaded {doc.filename}.")
+        else:
+            messages.warning(request, "; ".join(form.errors.get("file", ["Upload failed."])))
+    return redirect("patients:detail", pk=patient.pk)
+
+
+@role_required(*CLINICAL_READ_ROLES)
+def document_download(request, doc_id):
+    doc = get_object_or_404(PatientDocument, pk=doc_id, patient__is_active=True)
+    # Served through this gated view (not a public MEDIA URL) so only clinical
+    # roles can read a patient's records.
+    return FileResponse(doc.file.open("rb"), as_attachment=False, filename=doc.filename)
 
 
 @role_required(*PATIENT_MANAGE_ROLES)

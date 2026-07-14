@@ -2,7 +2,13 @@ from django.contrib import admin
 
 from apps.core.admin_mixins import NoHardDeleteAdminMixin
 
-from .models import ChronicCondition, Patient, PatientAllergy, PatientSequence
+from .models import (
+    ChronicCondition,
+    Patient,
+    PatientAllergy,
+    PatientDocument,
+    PatientSequence,
+)
 
 
 class PatientAllergyInline(admin.TabularInline):
@@ -48,4 +54,12 @@ class PatientAllergyAdmin(admin.ModelAdmin):
 class ChronicConditionAdmin(admin.ModelAdmin):
     list_display = ("patient", "name", "created_at")
     search_fields = ("patient__full_name", "patient__uhid", "name")
+
+
+@admin.register(PatientDocument)
+class PatientDocumentAdmin(admin.ModelAdmin):
+    list_display = ("patient", "doc_type", "title", "uploaded_by", "uploaded_at")
+    list_filter = ("doc_type",)
+    search_fields = ("patient__full_name", "patient__uhid", "title")
+    readonly_fields = ("uploaded_at",)
 

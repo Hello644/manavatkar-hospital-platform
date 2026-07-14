@@ -1,8 +1,14 @@
+from pathlib import Path
+
 from django import forms
 from django.conf import settings
 
-from .models import Patient
+from .models import Patient, PatientDocument
 from .services import approximate_dob_from_age, normalize_mobile, normalize_name
+
+
+ALLOWED_DOC_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".heic"}
+MAX_DOC_MB = 15
 
 
 class PatientForm(forms.ModelForm):
@@ -133,3 +139,20 @@ class PatientForm(forms.ModelForm):
             patient.full_clean()
             patient.save()
         return patient
+
+
+class PatientDocumentForm(forms.ModelForm):
+    class Meta:
+        model = PatientDocument
+        fields = ["file", "doc_type", "title", "notes"]
+
+    def clean_file(self):
+        f = self.cleaned_data["file"]
+        ext = Path(f.name).suffix.lower()
+        if ext not in ALLOWED_DOC_EXTENSIONS:
+            raise forms.ValidationError(
+                "Allowed types: " + ", ".join(sorted(ALLOWED_DOC_EXTENSIONS))
+            )
+        if f.size > MAX_DOC_MB * 1024 * 1024:
+            raise forms.ValidationError(f"File must be under {MAX_DOC_MB} MB.")
+        return f

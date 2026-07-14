@@ -74,5 +74,32 @@
     </tbody>
   </table>
 </section>
+
+<h2 style="margin-top:24px">Documents</h2>
+<form method="post" action="{% url 'patients:document_upload' patient.pk %}" enctype="multipart/form-data" class="search-row" style="flex-wrap:wrap">
+  {% csrf_token %}
+  {{ doc_form.file }}
+  {{ doc_form.doc_type }}
+  {{ doc_form.title }}
+  <button class="button primary" type="submit">Upload</button>
+</form>
+<p class="muted">Lab reports, scans, prescription photos — PDF/JPG/PNG up to 15 MB.</p>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>Uploaded</th><th>Type</th><th>Title</th><th>File</th></tr></thead>
+    <tbody>
+      {% for doc in documents %}
+        <tr>
+          <td>{{ doc.uploaded_at|date:"d-M-y H:i" }}</td>
+          <td>{{ doc.get_doc_type_display }}</td>
+          <td>{{ doc.title|default:"-" }}</td>
+          <td><a href="{% url 'patients:document_download' doc.id %}" target="_blank">{{ doc.filename }}</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">No documents attached.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
 {% endblock %}
 
