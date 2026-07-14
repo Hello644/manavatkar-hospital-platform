@@ -475,6 +475,43 @@ class ConsultationNoteTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
+class TeleconsultTests(TestCase):
+    def setUp(self):
+        self.doctor = make_doctor()
+        self.patient = make_patient()
+        self.receptionist = make_user("recept", role="receptionist")
+        self.visit, _ = services.create_visit(
+            patient=self.patient, doctor=self.doctor, user=self.receptionist
+        )
+
+    def test_launch_creates_room_and_is_idempotent(self):
+        from .models import Teleconsult
+
+        self.client.force_login(self.doctor.user)
+        r1 = self.client.get(reverse("opd:teleconsult_launch", args=[self.visit.pk]))
+        self.assertEqual(r1.status_code, 200)
+        self.assertContains(r1, "meet.jit.si")
+        self.client.get(reverse("opd:teleconsult_launch", args=[self.visit.pk]))
+        self.assertEqual(Teleconsult.objects.filter(visit=self.visit).count(), 1)
+
+    def test_end_marks_ended(self):
+        from .models import Teleconsult
+
+        self.client.force_login(self.doctor.user)
+        self.client.get(reverse("opd:teleconsult_launch", args=[self.visit.pk]))
+        session = Teleconsult.objects.get(visit=self.visit)
+        response = self.client.post(reverse("opd:teleconsult_end", args=[session.pk]))
+        self.assertRedirects(response, reverse("opd:visit_detail", args=[self.visit.pk]))
+        session.refresh_from_db()
+        self.assertEqual(session.status, Teleconsult.Status.ENDED)
+
+    def test_other_doctor_cannot_launch(self):
+        other = make_doctor("drother", "Dr. Other", room="C")
+        self.client.force_login(other.user)
+        response = self.client.get(reverse("opd:teleconsult_launch", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 403)
+
+
 class ThermalTokenTests(TestCase):
     def setUp(self):
         self.doctor = make_doctor()

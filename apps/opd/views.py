@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 from django.conf import settings
@@ -28,7 +29,7 @@ from .forms import (
     VitalsForm,
     WalkInVisitForm,
 )
-from .models import Appointment, Receipt, Visit
+from .models import Appointment, Receipt, Teleconsult, Visit
 from .permissions import (
     CLINICAL_READ_ROLES,
     DOCTOR_ROLES,
@@ -481,6 +482,55 @@ def queue_action(request, pk, action):
     else:
         messages.warning(request, "That action is not available for this visit.")
     return redirect("opd:doctor_queue")
+
+
+TELECONSULT_ROLES = ("doctor", "receptionist", "admin")
+
+
+def _teleconsult_allowed(request, visit):
+    if user_in_roles(request.user, ("receptionist", "admin")) or request.user.is_superuser:
+        return True
+    profile = getattr(request.user, "doctor_profile", None)
+    return profile is not None and visit.doctor_id == profile.pk
+
+
+@role_required(*TELECONSULT_ROLES)
+def teleconsult_launch(request, pk):
+    visit = get_object_or_404(Visit.objects.select_related("patient", "doctor"), pk=pk)
+    if not _teleconsult_allowed(request, visit):
+        raise PermissionDenied
+    session, _created = Teleconsult.objects.get_or_create(
+        visit=visit,
+        defaults={
+            "room_name": f"manwatkar-{uuid.uuid4().hex[:12]}",
+            "created_by": request.user,
+        },
+    )
+    room_url = f"https://{settings.OPD_JITSI_DOMAIN}/{session.room_name}"
+    return render(
+        request,
+        "opd/teleconsult.html",
+        {
+            "visit": visit,
+            "session": session,
+            "jitsi_domain": settings.OPD_JITSI_DOMAIN,
+            "room_url": room_url,
+            "display_name": visit.doctor.display_name,
+        },
+    )
+
+
+@role_required(*TELECONSULT_ROLES)
+@require_POST
+def teleconsult_end(request, pk):
+    session = get_object_or_404(Teleconsult, pk=pk)
+    if not _teleconsult_allowed(request, session.visit):
+        raise PermissionDenied
+    session.status = Teleconsult.Status.ENDED
+    session.ended_at = timezone.now()
+    session.save(update_fields=["status", "ended_at"])
+    messages.success(request, "Teleconsult ended.")
+    return redirect("opd:visit_detail", pk=session.visit_id)
 
 
 @role_required(*DOCTOR_ROLES)

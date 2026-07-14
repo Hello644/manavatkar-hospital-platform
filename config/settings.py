@@ -163,6 +163,10 @@ OPD_ANNOUNCE_LANG = os.environ.get("OPD_ANNOUNCE_LANG", "mr")
 # Default channel for auto-queued appointment/follow-up reminders.
 OPD_REMINDER_CHANNEL = os.environ.get("OPD_REMINDER_CHANNEL", "whatsapp")
 
+# Video teleconsult (Jitsi Meet). Public server needs no key; a self-hosted
+# Jitsi domain can be set for privacy.
+OPD_JITSI_DOMAIN = os.environ.get("OPD_JITSI_DOMAIN", "meet.jit.si")
+
 PIN_LENGTH = 6
 PIN_SESSION_TIMEOUT_SECONDS = int(os.environ.get("PIN_SESSION_TIMEOUT_SECONDS", "300"))
 SESSION_COOKIE_AGE = PIN_SESSION_TIMEOUT_SECONDS

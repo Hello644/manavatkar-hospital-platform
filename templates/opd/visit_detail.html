@@ -10,6 +10,7 @@
   </div>
   <div class="form-actions">
     <a class="button" href="{% url 'opd:slip' visit.pk %}">Slip</a>
+    {% if can_act or is_receptionist_role %}<a class="button" href="{% url 'opd:teleconsult_launch' visit.pk %}">Video consult</a>{% endif %}
     <a class="button" href="{% url 'patients:detail' patient.pk %}">Patient record</a>
   </div>
 </section>

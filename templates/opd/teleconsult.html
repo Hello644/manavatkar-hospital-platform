@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Video consult — {{ visit.token_label }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Video consult</h1>
+    <p>{{ visit.token_label }} · {{ visit.patient.full_name }} · {{ visit.patient.uhid }}
+      · <span class="badge {% if session.status == 'ended' %}{% else %}ok{% endif %}">{{ session.get_status_display }}</span></p>
+  </div>
+  <div class="form-actions" style="margin:0">
+    <a class="button" href="{% url 'opd:visit_detail' visit.pk %}">Back to visit</a>
+    {% if session.status != 'ended' %}
+      <form method="post" action="{% url 'opd:teleconsult_end' session.pk %}">{% csrf_token %}<button class="button" type="submit">End consult</button></form>
+    {% endif %}
+  </div>
+</section>
+
+<div class="warning-band">
+  Share this link with the patient (their phone opens it, no app/login needed):
+  <br><a href="{{ room_url }}" target="_blank">{{ room_url }}</a>
+  {% if visit.patient.mobile %}
+    · <a href="https://wa.me/91{{ visit.patient.mobile }}?text={{ room_url|urlencode }}" target="_blank">Send on WhatsApp</a>
+  {% endif %}
+</div>
+
+{% if session.status == 'ended' %}
+  <p class="muted">This teleconsult has ended.</p>
+{% else %}
+  <div id="meet" style="height:70vh; border:1px solid var(--line); border-radius:8px; overflow:hidden"></div>
+  <p class="muted" id="meet-fallback" style="display:none">
+    Video needs an internet connection. Open the room link above directly if it doesn't load.
+  </p>
+  <script src="https://{{ jitsi_domain }}/external_api.js" onerror="document.getElementById('meet-fallback').style.display='block'"></script>
+  <script>
+    try {
+      new JitsiMeetExternalAPI("{{ jitsi_domain }}", {
+        roomName: "{{ session.room_name }}",
+        parentNode: document.getElementById("meet"),
+        userInfo: { displayName: "Dr. {{ display_name|escapejs }}" },
+      });
+    } catch (e) {
+      document.getElementById('meet-fallback').style.display = 'block';
+    }
+  </script>
+{% endif %}
+{% endblock %}

@@ -340,8 +340,34 @@ class ConsultationNote(models.Model):
         )
 
 
+class Teleconsult(models.Model):
+    """A video consultation room (Jitsi Meet) for a visit. No account needed —
+    the patient opens the room URL on their phone."""
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        ENDED = "ended", "Ended"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    visit = models.OneToOneField(
+        Visit, on_delete=models.CASCADE, related_name="teleconsult"
+    )
+    room_name = models.CharField(max_length=64, unique=True)
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.OPEN)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="teleconsults_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Teleconsult {self.room_name}"
+
+
 auditlog.register(Visit)
 auditlog.register(VitalsRecord)
 auditlog.register(ConsultationNote)
 auditlog.register(Appointment)
 auditlog.register(Receipt)
+auditlog.register(Teleconsult)
