@@ -35,6 +35,9 @@ CLINICAL_READ_ROLES = (DOCTOR, NURSE, RECEPTIONIST, ADMIN)
 # Who may create/edit the patient registry.
 PATIENT_MANAGE_ROLES = (RECEPTIONIST, ADMIN)
 
+# Who records lab sample collection and enters results.
+LAB_STAFF_ROLES = (NURSE, RECEPTIONIST, ADMIN)
+
 
 def user_in_roles(user, roles):
     if not user.is_authenticated:

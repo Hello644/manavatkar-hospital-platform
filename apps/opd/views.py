@@ -502,6 +502,7 @@ def visit_detail(request, pk):
             "chronic_conditions": patient.chronic_conditions.all(),
             "past_visits": past_visits,
             "prescriptions": visit.prescriptions.all(),
+            "lab_orders": visit.lab_orders.all(),
             "complete_form": complete_form,
             "can_act": can_act,
             "can_prescribe": can_act and visit.doctor.can_prescribe_on(),

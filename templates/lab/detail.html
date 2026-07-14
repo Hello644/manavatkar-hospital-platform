@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Lab order {{ order.short_id }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Lab order {{ order.short_id }}
+      <span class="badge {% if order.status == 'reported' %}ok{% endif %}">{{ order.get_status_display }}</span>
+    </h1>
+    <p>{{ order.patient.full_name }} · {{ order.patient.uhid }} · Dr. {{ order.doctor.display_name }} · {{ order.created_at|date:"d M Y H:i" }}</p>
+  </div>
+  <div class="form-actions" style="margin:0">
+    {% if order.visit_id %}<a class="button" href="{% url 'opd:visit_detail' order.visit_id %}">Visit</a>{% endif %}
+    <a class="button" href="{% url 'patients:detail' order.patient.pk %}">Patient</a>
+  </div>
+</section>
+
+{% if order.indication %}<p><strong>Indication:</strong> {{ order.indication }}</p>{% endif %}
+
+{% if can_edit and order.status != 'cancelled' %}
+  <div class="form-actions" style="margin-bottom:14px">
+    {% if order.status == 'ordered' %}
+      <form method="post" action="{% url 'lab:set_status' order.pk 'collected' %}">{% csrf_token %}<button class="button" type="submit">Mark sample collected</button></form>
+    {% endif %}
+    <form method="post" action="{% url 'lab:set_status' order.pk 'cancelled' %}">{% csrf_token %}<button class="button" type="submit" onclick="return confirm('Cancel this order?')">Cancel order</button></form>
+  </div>
+{% endif %}
+
+<form method="post" action="{% url 'lab:save_results' order.pk %}">
+  {% csrf_token %}
+  <section class="table-wrap">
+    <table>
+      <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Reference</th><th>Flag</th></tr></thead>
+      <tbody>
+        {% for item in order.items.all %}
+          <tr>
+            <td>{{ item.test_text }}</td>
+            {% if can_edit %}
+              <td><input name="value_{{ item.pk }}" value="{{ item.result_value }}" style="max-width:130px"></td>
+              <td><input name="unit_{{ item.pk }}" value="{{ item.result_unit }}" style="max-width:80px"></td>
+              <td><input name="ref_{{ item.pk }}" value="{{ item.reference_range }}" style="max-width:110px"></td>
+              <td>
+                <select name="flag_{{ item.pk }}" style="max-width:120px">
+                  <option value="">—</option>
+                  {% for value, label in flag_choices %}
+                    <option value="{{ value }}" {% if item.flag == value %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+            {% else %}
+              <td>{{ item.result_value|default:"-" }}</td>
+              <td>{{ item.result_unit }}</td>
+              <td>{{ item.reference_range }}</td>
+              <td>{% if item.flag %}<span class="badge {% if item.flag != 'normal' %}danger{% endif %}">{{ item.get_flag_display }}</span>{% endif %}</td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% if can_edit and order.status != 'cancelled' %}
+    <div class="form-actions" style="margin-top:12px">
+      <button class="button" type="submit">Save results</button>
+      <button class="button primary" type="submit" name="report" value="1">Save &amp; mark reported</button>
+    </div>
+  {% endif %}
+</form>
+{% endblock %}

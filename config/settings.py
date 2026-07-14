@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.opd",
     "apps.prescriptions",
     "apps.comms",
+    "apps.lab",
 ]
 
 MIDDLEWARE = [

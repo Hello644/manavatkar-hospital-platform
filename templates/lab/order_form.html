@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Order lab tests — {{ visit.patient.full_name }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Order lab tests</h1>
+    <p>{{ visit.patient.full_name }} · {{ visit.patient.uhid }} · Dr. {{ visit.doctor.display_name }}</p>
+  </div>
+  <a class="button" href="{% url 'opd:visit_detail' visit.pk %}">Back to visit</a>
+</section>
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  <fieldset>
+    <legend>Order</legend>
+    <label style="grid-column:1/-1">Clinical indication <input name="indication" placeholder="e.g. fever workup"></label>
+  </fieldset>
+
+  <h2 style="margin-top:16px">Tests</h2>
+  <p class="muted">Pick from the catalog or type any test as free text.</p>
+  <datalist id="labtests">
+    {% for t in tests %}<option value="{{ t.label }}"></option>{% endfor %}
+  </datalist>
+  <section class="table-wrap">
+    <table>
+      <thead><tr><th>Test</th></tr></thead>
+      <tbody id="lab-rows">
+        <tr><td><input name="test_text" list="labtests" autocomplete="off" placeholder="Test name"></td></tr>
+        <tr><td><input name="test_text" list="labtests" autocomplete="off"></td></tr>
+        <tr><td><input name="test_text" list="labtests" autocomplete="off"></td></tr>
+      </tbody>
+    </table>
+  </section>
+  <div class="form-actions" style="margin-top:10px">
+    <button class="button" type="button" onclick="addRow()">+ Add test</button>
+  </div>
+  <div class="form-actions" style="margin-top:16px">
+    <button class="button primary" type="submit">Place order</button>
+  </div>
+</form>
+
+<script>
+  function addRow() {
+    const body = document.getElementById('lab-rows');
+    const clone = body.rows[body.rows.length - 1].cloneNode(true);
+    clone.querySelector('input').value = '';
+    body.appendChild(clone);
+    clone.querySelector('input').focus();
+  }
+</script>
+{% endblock %}

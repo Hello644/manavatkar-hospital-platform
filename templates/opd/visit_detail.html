@@ -105,6 +105,24 @@
   {% endfor %}
 </section>
 
+<section style="margin-top:20px">
+  <div class="page-header" style="margin-bottom:10px">
+    <h2 style="margin:0">Lab tests</h2>
+    {% if can_act %}
+      <a class="button" href="{% url 'lab:order_create' visit.pk %}">Order lab tests</a>
+    {% endif %}
+  </div>
+  {% for order in lab_orders %}
+    <p>
+      <a href="{% url 'lab:detail' order.pk %}">Lab {{ order.short_id }}</a>
+      · <span class="badge {% if order.status == 'reported' %}ok{% endif %}">{{ order.get_status_display }}</span>
+      · {{ order.items.count }} test(s) · {{ order.created_at|date:"d-M-y H:i" }}
+    </p>
+  {% empty %}
+    <p class="muted">No lab tests ordered.</p>
+  {% endfor %}
+</section>
+
 {% if can_act and visit.status == "in_consult" %}
   <h2 style="margin-top:24px">Complete visit</h2>
   <form method="post" action="{% url 'opd:visit_complete' visit.pk %}" class="registry-form">
