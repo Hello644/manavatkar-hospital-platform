@@ -21,6 +21,7 @@ from .forms import (
     AppointmentForm,
     CancelDayForm,
     CompleteVisitForm,
+    ConsultationNoteForm,
     QuickUnknownPatientForm,
     RedirectQueueForm,
     RefundForm,
@@ -454,6 +455,22 @@ def queue_action(request, pk, action):
     return redirect("opd:doctor_queue")
 
 
+@role_required(*DOCTOR_ROLES)
+def consult_note(request, pk):
+    visit = get_actionable_visit(request, pk)
+    instance = getattr(visit, "note", None)
+    form = ConsultationNoteForm(request.POST or None, instance=instance)
+    if request.method == "POST" and form.is_valid():
+        note = form.save(commit=False)
+        note.visit = visit
+        if instance is None:
+            note.recorded_by = request.user
+        note.save()
+        messages.success(request, f"Clinical note saved for {visit.token_label}.")
+        return redirect("opd:visit_detail", pk=visit.pk)
+    return render(request, "opd/consult_note.html", {"visit": visit, "form": form})
+
+
 @role_required(*CLINICAL_READ_ROLES)
 def visit_detail(request, pk):
     visit = get_object_or_404(
@@ -480,6 +497,7 @@ def visit_detail(request, pk):
             "visit": visit,
             "patient": patient,
             "vitals": getattr(visit, "vitals", None),
+            "note": getattr(visit, "note", None),
             "allergies": patient.allergies.all(),
             "chronic_conditions": patient.chronic_conditions.all(),
             "past_visits": past_visits,

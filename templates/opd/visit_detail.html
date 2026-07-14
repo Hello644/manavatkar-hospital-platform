@@ -65,6 +65,28 @@
 
 <section style="margin-top:20px">
   <div class="page-header" style="margin-bottom:10px">
+    <h2 style="margin:0">Clinical note</h2>
+    {% if can_act %}
+      <a class="button" href="{% url 'opd:consult_note' visit.pk %}">{% if note and not note.is_empty %}Edit note{% else %}Add note{% endif %}</a>
+    {% endif %}
+  </div>
+  {% if note and not note.is_empty %}
+    <dl>
+      {% if note.chief_complaint %}<dt>Complaint</dt><dd>{{ note.chief_complaint }}</dd>{% endif %}
+      {% if note.history %}<dt>History</dt><dd>{{ note.history|linebreaksbr }}</dd>{% endif %}
+      {% if note.examination %}<dt>Examination</dt><dd>{{ note.examination|linebreaksbr }}</dd>{% endif %}
+      {% if note.diagnosis %}<dt>Diagnosis</dt><dd>{{ note.diagnosis }}</dd>{% endif %}
+      {% if note.assessment %}<dt>Assessment</dt><dd>{{ note.assessment|linebreaksbr }}</dd>{% endif %}
+      {% if note.plan %}<dt>Plan</dt><dd>{{ note.plan|linebreaksbr }}</dd>{% endif %}
+      {% if note.advice %}<dt>Advice</dt><dd>{{ note.advice|linebreaksbr }}</dd>{% endif %}
+    </dl>
+  {% else %}
+    <p class="muted">No clinical note recorded yet.</p>
+  {% endif %}
+</section>
+
+<section style="margin-top:20px">
+  <div class="page-header" style="margin-bottom:10px">
     <h2 style="margin:0">Prescriptions</h2>
     {% if can_prescribe %}
       <a class="button primary" href="{% url 'prescriptions:compose' visit.pk %}">Write prescription</a>

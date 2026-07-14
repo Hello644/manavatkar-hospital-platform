@@ -440,6 +440,41 @@ class FollowupAndRedirectTests(TestCase):
         )
 
 
+class ConsultationNoteTests(TestCase):
+    def setUp(self):
+        self.doctor = make_doctor()
+        self.patient = make_patient()
+        self.receptionist = make_user("recept", role="receptionist")
+        self.visit, _receipt = services.create_visit(
+            patient=self.patient, doctor=self.doctor, user=self.receptionist
+        )
+
+    def test_doctor_saves_note(self):
+        self.client.force_login(self.doctor.user)
+        response = self.client.post(
+            reverse("opd:consult_note", args=[self.visit.pk]),
+            {"chief_complaint": "Fever 3 days", "diagnosis": "Viral fever", "plan": "Rest, fluids"},
+        )
+        self.assertRedirects(response, reverse("opd:visit_detail", args=[self.visit.pk]))
+        self.visit.refresh_from_db()
+        self.assertEqual(self.visit.note.diagnosis, "Viral fever")
+        self.assertEqual(self.visit.note.recorded_by, self.doctor.user)
+
+    def test_other_doctor_cannot_edit_note(self):
+        other = make_doctor("drother", "Dr. Other", room="C")
+        self.client.force_login(other.user)
+        response = self.client.post(
+            reverse("opd:consult_note", args=[self.visit.pk]),
+            {"diagnosis": "x"},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_receptionist_cannot_edit_note(self):
+        self.client.force_login(self.receptionist)
+        response = self.client.get(reverse("opd:consult_note", args=[self.visit.pk]))
+        self.assertEqual(response.status_code, 403)
+
+
 class ThermalTokenTests(TestCase):
     def setUp(self):
         self.doctor = make_doctor()

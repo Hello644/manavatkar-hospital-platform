@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Clinical note — {{ visit.token_label }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Clinical note</h1>
+    <p>{{ visit.token_label }} · {{ visit.patient.full_name }} · {{ visit.patient.uhid }}</p>
+  </div>
+  <a class="button" href="{% url 'opd:visit_detail' visit.pk %}">Back to visit</a>
+</section>
+
+<form method="post" class="registry-form">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+  <fieldset>
+    <legend>Consultation</legend>
+    <label style="grid-column:1/-1">Chief complaint {{ form.chief_complaint }}</label>
+    <label style="grid-column:1/-1">History {{ form.history }}</label>
+    <label style="grid-column:1/-1">Examination / findings {{ form.examination }}</label>
+    <label>Diagnosis {{ form.diagnosis }}</label>
+    <label style="grid-column:1/-1">Assessment {{ form.assessment }}</label>
+    <label style="grid-column:1/-1">Plan / treatment {{ form.plan }}</label>
+    <label style="grid-column:1/-1">Advice {{ form.advice }}</label>
+  </fieldset>
+  <div class="form-actions">
+    <button class="button primary" type="submit">Save note</button>
+  </div>
+</form>
+{% endblock %}

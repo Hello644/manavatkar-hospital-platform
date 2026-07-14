@@ -2,7 +2,15 @@ from django.contrib import admin
 
 from apps.core.admin_mixins import NoHardDeleteAdminMixin
 
-from .models import Appointment, Receipt, ReceiptSequence, TokenSequence, Visit, VitalsRecord
+from .models import (
+    Appointment,
+    ConsultationNote,
+    Receipt,
+    ReceiptSequence,
+    TokenSequence,
+    Visit,
+    VitalsRecord,
+)
 
 
 @admin.register(Visit)
@@ -25,6 +33,13 @@ class VisitAdmin(NoHardDeleteAdminMixin, admin.ModelAdmin):
 @admin.register(VitalsRecord)
 class VitalsRecordAdmin(NoHardDeleteAdminMixin, admin.ModelAdmin):
     list_display = ("visit", "weight_kg", "bp_systolic", "bp_diastolic", "pulse", "spo2")
+
+
+@admin.register(ConsultationNote)
+class ConsultationNoteAdmin(NoHardDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("visit", "diagnosis", "recorded_by", "recorded_at")
+    search_fields = ("visit__patient__full_name", "diagnosis")
+    readonly_fields = ("recorded_at", "updated_at")
 
 
 @admin.register(Appointment)

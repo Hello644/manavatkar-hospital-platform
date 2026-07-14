@@ -310,7 +310,38 @@ class Receipt(models.Model):
         return f"{self.receipt_no} · ₹{self.amount}"
 
 
+class ConsultationNote(models.Model):
+    """The doctor's structured clinical note for a visit (SOAP-style). Separate
+    from nurse-entered vitals; one per visit."""
+
+    visit = models.OneToOneField(Visit, on_delete=models.CASCADE, related_name="note")
+    chief_complaint = models.CharField(max_length=240, blank=True)
+    history = models.TextField("History of present illness", blank=True)
+    examination = models.TextField("Examination / findings", blank=True)
+    diagnosis = models.CharField(max_length=240, blank=True)
+    assessment = models.TextField(blank=True)
+    plan = models.TextField("Plan / treatment", blank=True)
+    advice = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="notes_recorded",
+    )
+    recorded_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Note for {self.visit.token_label}"
+
+    @property
+    def is_empty(self):
+        return not any(
+            [self.chief_complaint, self.history, self.examination, self.diagnosis,
+             self.assessment, self.plan, self.advice]
+        )
+
+
 auditlog.register(Visit)
 auditlog.register(VitalsRecord)
+auditlog.register(ConsultationNote)
 auditlog.register(Appointment)
 auditlog.register(Receipt)

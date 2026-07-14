@@ -7,7 +7,7 @@ from django.utils import timezone
 from apps.accounts.models import DoctorProfile
 from apps.patients.models import Patient
 
-from .models import Appointment, Receipt, Visit, VitalsRecord
+from .models import Appointment, ConsultationNote, Receipt, Visit, VitalsRecord
 
 
 PAYMENT_CHOICES = [
@@ -178,6 +178,27 @@ class VitalsForm(forms.ModelForm):
             if age is not None and age < 12 and not cleaned.get("weight_kg"):
                 self.add_error("weight_kg", "Weight is mandatory for children under 12.")
         return cleaned
+
+
+class ConsultationNoteForm(forms.ModelForm):
+    class Meta:
+        model = ConsultationNote
+        fields = [
+            "chief_complaint",
+            "history",
+            "examination",
+            "diagnosis",
+            "assessment",
+            "plan",
+            "advice",
+        ]
+        widgets = {
+            "history": forms.Textarea(attrs={"rows": 2}),
+            "examination": forms.Textarea(attrs={"rows": 2}),
+            "assessment": forms.Textarea(attrs={"rows": 2}),
+            "plan": forms.Textarea(attrs={"rows": 2}),
+            "advice": forms.Textarea(attrs={"rows": 2}),
+        }
 
 
 class CompleteVisitForm(forms.Form):
