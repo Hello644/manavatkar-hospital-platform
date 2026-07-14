@@ -26,6 +26,7 @@
         {% endif %}
         {% if is_receptionist_role or is_admin_role %}
           <a href="{% url 'opd:collection_register' %}">{% trans "Collections" %}</a>
+          <a href="{% url 'comms:outbox' %}">{% trans "Outbox" %}</a>
         {% endif %}
         <a href="{% url 'opd:display' %}" target="_blank">{% trans "TV display" %}</a>
         <a href="{% url 'accounts:pin_switch' %}">{% trans "Switch user" %}</a>

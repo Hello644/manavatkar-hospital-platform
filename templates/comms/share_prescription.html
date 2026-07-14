@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Share prescription{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div>
+    <h1>Share on WhatsApp</h1>
+    <p>Rx {{ rx.short_id }} · {{ rx.patient.full_name }} · {{ rx.patient.uhid }}</p>
+  </div>
+  <a class="button" href="{% url 'prescriptions:detail' rx.pk %}">Back</a>
+</section>
+
+{% if block_reason %}
+  <div class="banner-danger">{{ block_reason }} This prescription cannot be shared digitally.</div>
+{% else %}
+  <div class="warning-band">
+    Confirm the destination number before sending — shared family phones are a confidentiality leak.
+    Only a <strong>record copy</strong> is shared; the signed printed original is issued to the patient.
+  </div>
+  <form method="post" class="registry-form" style="max-width:460px">
+    {% csrf_token %}
+    <fieldset>
+      <legend>Destination</legend>
+      <label>WhatsApp number (10 digits)
+        <input name="number" inputmode="numeric" value="{{ rx.patient.mobile }}" required>
+      </label>
+      <label class="check-row">
+        <input type="checkbox" name="confirm" value="yes" required>
+        I confirm this is the patient's own number
+      </label>
+    </fieldset>
+    <div class="form-actions">
+      <button class="button primary" type="submit">Open WhatsApp</button>
+    </div>
+  </form>
+{% endif %}
+{% endblock %}

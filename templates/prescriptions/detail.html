@@ -9,6 +9,7 @@
   </div>
   <div class="form-actions" style="margin:0">
     <a class="button primary" href="{% url 'prescriptions:print' rx.pk %}" target="_blank">Print</a>
+    <a class="button" href="{% url 'comms:share_prescription' rx.pk %}">Share on WhatsApp</a>
     {% if rx.visit_id %}<a class="button" href="{% url 'opd:visit_detail' rx.visit_id %}">Visit</a>{% endif %}
   </div>
 </section>
