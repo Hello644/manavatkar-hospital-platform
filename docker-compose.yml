@@ -27,6 +27,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-hospital}:${POSTGRES_PASSWORD:-change-this-db-password}@db:5432/${POSTGRES_DB:-hospital}
       DJANGO_ALLOWED_HOSTS: ${APP_DOMAIN:-localhost},localhost,127.0.0.1,web
       DJANGO_CSRF_TRUSTED_ORIGINS: https://${APP_DOMAIN:-localhost}
+      FACE_SERVICE_URL: ${FACE_SERVICE_URL:-http://facesvc:8080}
+      KIOSK_DEVICE_TOKEN: ${KIOSK_DEVICE_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy
@@ -51,6 +53,18 @@ services:
       - caddy_data:/data
       - caddy_config:/config
 
+  facesvc:
+    build: ./facesvc
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-hospital}:${POSTGRES_PASSWORD:-change-this-db-password}@db:5432/${POSTGRES_DB:-hospital}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Persist the auto-downloaded buffalo_l models across restarts.
+      - face_models:/root/.insightface
+
   backup:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -74,4 +88,5 @@ volumes:
   backup_data:
   caddy_data:
   caddy_config:
+  face_models:
 
