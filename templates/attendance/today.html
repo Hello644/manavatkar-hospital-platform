@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Attendance today{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div><h1>Today's exceptions</h1><p>{{ on_date|date:"l, d M Y" }}</p></div>
+  <a class="button" href="{% url 'attendance:board' %}">Who's in</a>
+</section>
+
+<h2>Late ({{ late|length }})</h2>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>Staff</th><th>Shift</th><th>First in</th><th>Photo</th></tr></thead>
+    <tbody>
+      {% for i in late %}
+        <tr>
+          <td>{{ i.staff.display_name }}</td>
+          <td>{{ i.shift.name }}</td>
+          <td>{% if i.attendance.first_in %}{{ i.attendance.first_in|time:"H:i" }}{% else %}-{% endif %}</td>
+          <td>-</td>
+        </tr>
+      {% empty %}<tr><td colspan="4">No latecomers.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<h2 style="margin-top:20px">Absent ({{ absent|length }})</h2>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>Staff</th><th>Shift</th></tr></thead>
+    <tbody>
+      {% for i in absent %}
+        <tr><td>{{ i.staff.display_name }}</td><td>{{ i.shift.name }}</td></tr>
+      {% empty %}<tr><td colspan="2">No absentees.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Monthly register{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div><h1>Monthly register</h1><p>{{ year }}-{{ month }} · P present · L late · A absent · Lv leave · O off</p></div>
+  <div class="form-actions" style="margin:0">
+    <form method="get" class="search-row" style="margin:0">
+      <input name="year" type="number" value="{{ year }}" style="max-width:90px">
+      <input name="month" type="number" min="1" max="12" value="{{ month }}" style="max-width:70px">
+      <button class="button" type="submit">Show</button>
+    </form>
+    <a class="button primary" href="{% url 'attendance:payroll_export' %}?year={{ year }}&month={{ month }}">Payroll .xlsx</a>
+  </div>
+</section>
+<section class="table-wrap" style="overflow-x:auto">
+  <table>
+    <thead>
+      <tr><th>Staff</th>{% for d in day_range %}<th>{{ d }}</th>{% endfor %}<th>P</th><th>A</th></tr>
+    </thead>
+    <tbody>
+      {% for row in data.rows %}
+        <tr>
+          <td>{{ row.staff.display_name }}</td>
+          {% for c in row.cells %}<td>{{ c }}</td>{% endfor %}
+          <td>{{ row.present }}</td><td>{{ row.absent }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="{{ data.days|add:3 }}">No staff.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

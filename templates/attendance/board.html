@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Who's in{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div><h1>Who's in right now</h1><p>Live muster · {{ present|length }} present</p></div>
+  <a class="button" href="{% url 'attendance:today' %}">Today's exceptions</a>
+</section>
+<div class="action-grid">
+  {% for row in present %}
+    <div class="action-tile"><span>Since {{ row.since|time:"H:i" }}</span><strong>{{ row.staff.display_name }}</strong></div>
+  {% empty %}
+    <p class="muted">No one is currently punched in.</p>
+  {% endfor %}
+</div>
+{% endblock %}

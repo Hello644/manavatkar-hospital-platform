@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Leave requests{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div><h1>Leave requests</h1><p>{{ pending|length }} pending</p></div>
+</section>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>Staff</th><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Decide</th></tr></thead>
+    <tbody>
+      {% for leave in pending %}
+        <tr>
+          <td>{{ leave.staff.display_name }}</td>
+          <td>{{ leave.leave_type.name }}</td>
+          <td>{{ leave.from_date|date:"d-M" }} → {{ leave.to_date|date:"d-M" }}</td>
+          <td>{{ leave.days }}</td>
+          <td>{{ leave.reason }}</td>
+          <td>
+            <form method="post" action="{% url 'attendance:leave_decide' leave.pk %}" class="search-row" style="margin:0">
+              {% csrf_token %}
+              <button class="button" name="decision" value="approve">Approve</button>
+              <button class="button" name="decision" value="reject">Reject</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}<tr><td colspan="6">No pending leave.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

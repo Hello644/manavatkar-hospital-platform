@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "apps.lab",
     "apps.pharmacy",
     "apps.assist",
+    "apps.attendance",
 ]
 
 MIDDLEWARE = [
@@ -173,6 +174,14 @@ OPD_JITSI_DOMAIN = os.environ.get("OPD_JITSI_DOMAIN", "meet.jit.si")
 OPD_AI_ENABLED = env_bool("OPD_AI_ENABLED", default=False)
 OPD_AI_MODEL = os.environ.get("OPD_AI_MODEL", "claude-opus-4-8")
 OPD_ANTHROPIC_API_KEY = os.environ.get("OPD_ANTHROPIC_API_KEY", "")
+
+# Facial attendance (Module C). The face-recognition inference runs in the
+# separate facesvc container; the kiosk authenticates with a device token.
+FACE_SERVICE_URL = os.environ.get("FACE_SERVICE_URL", "")  # e.g. http://facesvc:8080
+FACE_MATCH_THRESHOLD = float(os.environ.get("FACE_MATCH_THRESHOLD", "0.42"))
+FACE_MARGIN_THRESHOLD = float(os.environ.get("FACE_MARGIN_THRESHOLD", "0.08"))
+KIOSK_DEVICE_TOKEN = os.environ.get("KIOSK_DEVICE_TOKEN", "")
+ATTENDANCE_PHOTO_RETENTION_DAYS = int(os.environ.get("ATTENDANCE_PHOTO_RETENTION_DAYS", "45"))
 
 PIN_LENGTH = 6
 PIN_SESSION_TIMEOUT_SECONDS = int(os.environ.get("PIN_SESSION_TIMEOUT_SECONDS", "300"))

@@ -41,6 +41,11 @@ LAB_STAFF_ROLES = (NURSE, RECEPTIONIST, ADMIN)
 # Who manages drug stock and dispenses.
 PHARMACY_ROLES = (PHARMACIST, ADMIN)
 
+# Attendance: admin manages roster/enrolment/regularization/payroll; the desk
+# may view the live muster and today's exceptions.
+ATTENDANCE_ADMIN_ROLES = (ADMIN,)
+ATTENDANCE_VIEW_ROLES = (ADMIN, RECEPTIONIST)
+
 
 def user_in_roles(user, roles):
     if not user.is_authenticated:

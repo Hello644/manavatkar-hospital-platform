@@ -1,0 +1,122 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Attendance kiosk</title>
+  <link rel="manifest" href="{% static 'attendance/manifest.json' %}">
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; }
+    body { background: #0c1420; color: #eef2f5; font-family: system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 20px; }
+    h1 { font-size: 26px; }
+    video { width: min(90vw, 520px); border-radius: 16px; background: #000; aspect-ratio: 4/3; object-fit: cover; }
+    .status { font-size: 22px; min-height: 30px; text-align: center; }
+    .status.ok { color: #6ee7a8; } .status.err { color: #ff9b9b; } .status.queued { color: #ffd76a; }
+    button { background: #1c6feb; border: 0; color: #fff; font-size: 20px; padding: 14px 22px; border-radius: 12px; }
+    .pin { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .pin input { font-size: 20px; padding: 12px; border-radius: 10px; border: 1px solid #2a3a52; background: #10233b; color: #fff; width: 150px; }
+    .queued-count { font-size: 14px; color: #9db4cc; }
+  </style>
+</head>
+<body>
+  <h1>Attendance</h1>
+  <video id="cam" autoplay playsinline muted></video>
+  <div class="status" id="status">Look at the camera, or use PIN below.</div>
+  {% if face_on %}<button id="capture">Punch with face</button>{% endif %}
+
+  <div class="pin">
+    <input id="emp" inputmode="numeric" placeholder="Employee code">
+    <input id="pin" inputmode="numeric" type="password" placeholder="6-digit PIN" maxlength="6">
+    <button id="pinbtn">Punch with PIN</button>
+  </div>
+  <div class="queued-count" id="queued"></div>
+
+  <script>
+    const TOKEN = "{{ token|escapejs }}";
+    const PUNCH_URL = "{% url 'attendance:punch' %}";
+    const statusEl = document.getElementById('status');
+    const queuedEl = document.getElementById('queued');
+
+    function setStatus(msg, cls) { statusEl.textContent = msg; statusEl.className = 'status ' + (cls || ''); }
+
+    // Camera
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user' } })
+      .then((s) => { document.getElementById('cam').srcObject = s; })
+      .catch(() => setStatus('Camera unavailable — use PIN.', 'err'));
+
+    function grabFrame() {
+      const v = document.getElementById('cam');
+      const c = document.createElement('canvas');
+      c.width = v.videoWidth || 480; c.height = v.videoHeight || 360;
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.7);
+    }
+
+    // ---- Offline store-and-forward via IndexedDB ----
+    let db;
+    const req = indexedDB.open('attendance-kiosk', 1);
+    req.onupgradeneeded = (e) => e.target.result.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
+    req.onsuccess = (e) => { db = e.target.result; flush(); updateCount(); };
+
+    function enqueue(body) {
+      const tx = db.transaction('queue', 'readwrite');
+      tx.objectStore('queue').add({ body, ts: Date.now() });
+      tx.oncomplete = () => { updateCount(); setStatus('Recorded — will sync.', 'queued'); };
+    }
+    function updateCount() {
+      if (!db) return;
+      const tx = db.transaction('queue', 'readonly');
+      const countReq = tx.objectStore('queue').count();
+      countReq.onsuccess = () => { queuedEl.textContent = countReq.result ? countReq.result + ' punch(es) waiting to sync' : ''; };
+    }
+    async function flush() {
+      if (!db || !navigator.onLine) return;
+      const tx = db.transaction('queue', 'readwrite');
+      const store = tx.objectStore('queue');
+      store.openCursor().onsuccess = async (e) => {
+        const cursor = e.target.result;
+        if (!cursor) { updateCount(); return; }
+        try {
+          const r = await fetch(PUNCH_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Kiosk-Token': TOKEN }, body: JSON.stringify(cursor.value.body) });
+          if (r.ok) { store.delete(cursor.key); }
+        } catch (_) { return; }
+        cursor.continue();
+      };
+    }
+    window.addEventListener('online', flush);
+
+    async function send(body) {
+      body.device_time = new Date().toISOString();
+      body.device = 'kiosk-1';
+      try {
+        const r = await fetch(PUNCH_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Kiosk-Token': TOKEN }, body: JSON.stringify(body) });
+        const data = await r.json();
+        if (data.status === 'ok') setStatus('Welcome, ' + data.name + ' ✓', 'ok');
+        else if (data.status === 'confirm') setStatus('Are you ' + data.name + '? Tap again to confirm.', 'queued');
+        else if (data.status === 'retry') setStatus('Not recognised — try again or use PIN.', 'err');
+        else setStatus(data.message || 'Try again.', 'err');
+      } catch (_) {
+        enqueue(body);   // offline — queue and replay later
+      }
+    }
+
+    document.getElementById('capture')?.addEventListener('click', () => {
+      setStatus('Reading…');
+      send({ image: grabFrame() });
+    });
+    document.getElementById('pinbtn').addEventListener('click', () => {
+      const emp = document.getElementById('emp').value.trim();
+      const pin = document.getElementById('pin').value.trim();
+      if (!emp || pin.length !== 6) { setStatus('Enter employee code + 6-digit PIN.', 'err'); return; }
+      setStatus('Checking…');
+      send({ employee_code: emp, pin });
+      document.getElementById('pin').value = '';
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register("{% static 'attendance/sw.js' %}").catch(() => {});
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Enroll — {{ staff.display_name }}{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div><h1>Face enrollment</h1><p>{{ staff.display_name }} · {{ samples }} sample(s)</p></div>
+</section>
+
+{% if not face_on %}
+  <div class="warning-band">The face service is not configured — enrollment is unavailable. Staff can still punch with a PIN.</div>
+{% else %}
+  <div class="warning-band">Admin-supervised enrollment. Capture 5–8 clear samples. Requires the staff member's written consent (record it in the consent registry first).</div>
+  <video id="cam" autoplay playsinline muted style="width:min(90vw,420px);border-radius:12px;background:#000;aspect-ratio:4/3;object-fit:cover"></video>
+  <form method="post" id="enrollForm">{% csrf_token %}<input type="hidden" name="image" id="image">
+    <div class="form-actions" style="margin-top:12px"><button class="button primary" type="submit">Capture sample</button></div>
+  </form>
+  <script>
+    navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'user' } })
+      .then((s) => { document.getElementById('cam').srcObject = s; }).catch(() => {});
+    document.getElementById('enrollForm').addEventListener('submit', () => {
+      const v = document.getElementById('cam'); const c = document.createElement('canvas');
+      c.width = v.videoWidth || 480; c.height = v.videoHeight || 360;
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      document.getElementById('image').value = c.toDataURL('image/jpeg', 0.8);
+    });
+  </script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Regularization queue{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div><h1>Regularization queue</h1><p>Missed punches to resolve with a reason.</p></div>
+  <form method="post">{% csrf_token %}<button class="button" type="submit">Scan for missing punches</button></form>
+</section>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>Staff</th><th>Shift</th><th>Date</th><th>Resolve</th></tr></thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.shift_instance.staff.display_name }}</td>
+          <td>{{ item.shift_instance.shift.name }}</td>
+          <td>{{ item.shift_instance.date|date:"d-M-y" }}</td>
+          <td>
+            <form method="post" action="{% url 'attendance:regularization_resolve' item.pk %}" class="search-row" style="margin:0">
+              {% csrf_token %}
+              <input name="reason" placeholder="Reason (required)" required>
+              <button class="button" name="decision" value="resolve">Present</button>
+              <button class="button" name="decision" value="reject">Keep absent</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}<tr><td colspan="4">Nothing to regularize.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

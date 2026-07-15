@@ -1,0 +1,9 @@
+{
+  "name": "Attendance Kiosk",
+  "short_name": "Attendance",
+  "start_url": "../../attendance/kiosk/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0c1420",
+  "theme_color": "#0c1420"
+}
