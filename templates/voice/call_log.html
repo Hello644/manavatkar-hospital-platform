@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Phone call log{% endblock %}
+{% block content %}
+<section class="page-header">
+  <div><h1>AI phone bookings</h1><p>Calls handled by the booking assistant.</p></div>
+</section>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>When</th><th>From</th><th>Status</th><th>Booked</th></tr></thead>
+    <tbody>
+      {% for s in sessions %}
+        <tr>
+          <td>{{ s.created_at|date:"d-M-y H:i" }}</td>
+          <td>{{ s.from_number|default:"-" }}</td>
+          <td><span class="badge {% if s.booked_appointment %}ok{% endif %}">{{ s.get_status_display }}</span></td>
+          <td>
+            {% if s.booked_appointment %}
+              {{ s.booked_appointment.patient.full_name }} · {{ s.booked_appointment.doctor.display_name }}
+              · {{ s.booked_appointment.date|date:"d-M" }} {{ s.booked_appointment.slot_time|time:"H:i" }}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">No calls yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

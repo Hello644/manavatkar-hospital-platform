@@ -33,6 +33,7 @@
         {% endif %}
         {% if is_admin_role or is_receptionist_role %}
           <a href="{% url 'attendance:board' %}">{% trans "Attendance" %}</a>
+          <a href="{% url 'voice:call_log' %}">{% trans "Call log" %}</a>
         {% endif %}
         <a href="{% url 'opd:display' %}" target="_blank">{% trans "TV display" %}</a>
         <a href="{% url 'accounts:pin_switch' %}">{% trans "Switch user" %}</a>

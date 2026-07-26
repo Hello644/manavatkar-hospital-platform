@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "apps.pharmacy",
     "apps.assist",
     "apps.attendance",
+    "apps.voice",
 ]
 
 MIDDLEWARE = [
@@ -182,6 +183,18 @@ FACE_MATCH_THRESHOLD = float(os.environ.get("FACE_MATCH_THRESHOLD", "0.42"))
 FACE_MARGIN_THRESHOLD = float(os.environ.get("FACE_MARGIN_THRESHOLD", "0.08"))
 KIOSK_DEVICE_TOKEN = os.environ.get("KIOSK_DEVICE_TOKEN", "")
 ATTENDANCE_PHOTO_RETENTION_DAYS = int(os.environ.get("ATTENDANCE_PHOTO_RETENTION_DAYS", "45"))
+
+# AI phone receptionist (apps.voice). Off by default — it answers real calls via
+# a telephony provider (Twilio reference) and needs the Anthropic key. Uses the
+# shared OPD_ANTHROPIC_API_KEY.
+VOICE_AGENT_ENABLED = env_bool("VOICE_AGENT_ENABLED", default=False)
+VOICE_AGENT_MODEL = os.environ.get("VOICE_AGENT_MODEL", "claude-opus-4-8")
+VOICE_TTS_LANGUAGE = os.environ.get("VOICE_TTS_LANGUAGE", "en-IN")
+VOICE_TTS_VOICE = os.environ.get("VOICE_TTS_VOICE", "Polly.Aditi")
+VOICE_MAX_TURNS = int(os.environ.get("VOICE_MAX_TURNS", "16"))
+# Verify inbound webhooks came from Twilio (X-Twilio-Signature). Leave blank to
+# skip verification for local testing.
+TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
 
 PIN_LENGTH = 6
 PIN_SESSION_TIMEOUT_SECONDS = int(os.environ.get("PIN_SESSION_TIMEOUT_SECONDS", "300"))

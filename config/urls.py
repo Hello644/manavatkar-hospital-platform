@@ -27,6 +27,7 @@ urlpatterns = [
     path("pharmacy/", include("apps.pharmacy.urls")),
     path("assist/", include("apps.assist.urls")),
     path("attendance/", include("apps.attendance.urls")),
+    path("voice/", include("apps.voice.urls")),
 ]
 
 if settings.DEBUG:
