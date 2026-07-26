@@ -7,8 +7,13 @@ import hmac
 from xml.sax.saxutils import escape
 
 
+def _attr(value):
+    """Escape a value for use inside an XML double-quoted attribute."""
+    return escape(value, {'"': "&quot;"})
+
+
 def _say(text, voice, language):
-    return f'<Say voice="{escape(voice, {chr(34): "&quot;"})}" language="{escape(language)}">{escape(text)}</Say>'
+    return f'<Say voice="{_attr(voice)}" language="{_attr(language)}">{escape(text)}</Say>'
 
 
 def gather(text, action_url, voice, language):
@@ -16,8 +21,8 @@ def gather(text, action_url, voice, language):
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         "<Response>"
-        f'<Gather input="speech" action="{escape(action_url)}" method="POST" '
-        f'speechTimeout="auto" language="{escape(language)}">'
+        f'<Gather input="speech" action="{_attr(action_url)}" method="POST" '
+        f'speechTimeout="auto" language="{_attr(language)}">'
         f"{_say(text, voice, language)}"
         "</Gather>"
         f'{_say("Sorry, I did not catch that. Please call again. Goodbye.", voice, language)}'

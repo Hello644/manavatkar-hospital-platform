@@ -76,34 +76,43 @@ def respond(session, user_text, client=None, max_iterations=6):
     for _ in range(max_iterations):
         response = client.messages.create(
             model=settings.VOICE_AGENT_MODEL,
-            max_tokens=600,
+            max_tokens=1024,
             system=system,
             messages=messages,
             tools=tools.TOOL_SCHEMAS,
         )
-        assistant_content = _blocks_to_dicts(response.content)
-        messages.append({"role": "assistant", "content": assistant_content})
-        reply_parts += [b["text"] for b in assistant_content if b["type"] == "text"]
+        blocks = _blocks_to_dicts(response.content)
+        text_blocks = [b for b in blocks if b["type"] == "text"]
 
-        if response.stop_reason != "tool_use":
-            break
-
-        tool_results = []
-        for block in assistant_content:
-            if block["type"] != "tool_use":
-                continue
-            if block["name"] == "end_call":
-                done = True
-                tool_results.append({"type": "tool_result", "tool_use_id": block["id"], "content": "ok"})
-                continue
-            result = tools.run_tool(block["name"], block.get("input", {}))
-            if block["name"] == "book_appointment" and isinstance(result, dict) and result.get("ok"):
-                _attach_booking(session, result)
-            tool_results.append(
-                {"type": "tool_result", "tool_use_id": block["id"], "content": json.dumps(result)}
-            )
-        messages.append({"role": "user", "content": tool_results})
-        if done:
+        if response.stop_reason == "tool_use":
+            # Complete tool-call turn: persist ALL blocks (each tool_use must stay
+            # paired with the tool_result we send back), run tools, continue.
+            messages.append({"role": "assistant", "content": blocks})
+            reply_parts += [b["text"] for b in text_blocks]
+            tool_results = []
+            for block in blocks:
+                if block["type"] != "tool_use":
+                    continue
+                if block["name"] == "end_call":
+                    done = True
+                    tool_results.append({"type": "tool_result", "tool_use_id": block["id"], "content": "ok"})
+                    continue
+                result = tools.run_tool(block["name"], block.get("input", {}))
+                if block["name"] == "book_appointment" and isinstance(result, dict) and result.get("ok"):
+                    _attach_booking(session, result)
+                tool_results.append(
+                    {"type": "tool_result", "tool_use_id": block["id"], "content": json.dumps(result)}
+                )
+            messages.append({"role": "user", "content": tool_results})
+            if done:
+                break
+        else:
+            # end_turn / max_tokens / refusal: persist ONLY text so we never leave
+            # a dangling tool_use (which would 400 on the next turn's replay); an
+            # empty turn persists nothing and falls back to the default reply.
+            if text_blocks:
+                messages.append({"role": "assistant", "content": text_blocks})
+                reply_parts += [b["text"] for b in text_blocks]
             break
 
     session.messages = messages

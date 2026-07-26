@@ -69,6 +69,22 @@ class BookingToolTests(TestCase):
         result = tools.book_appointment("A", "123", "Madhu", self.tomorrow, "12:00")
         self.assertFalse(result["ok"])
 
+    def test_book_rejects_off_grid_and_lunch_times(self):
+        # 10:05 is not on the slot grid; 14:00 is between the OPD windows.
+        self.assertFalse(tools.book_appointment("A", "9876543210", "Madhu", self.tomorrow, "10:05")["ok"])
+        self.assertFalse(tools.book_appointment("A", "9876543210", "Madhu", self.tomorrow, "14:00")["ok"])
+
+    def test_provisional_patient_is_valid_and_flagged(self):
+        tools.book_appointment("Ravi", "9876500000", "Madhu", self.tomorrow, "11:00")
+        patient = Patient.objects.get(mobile="9876500000")
+        self.assertEqual(patient.sex, Patient.Sex.OTHER)
+        self.assertTrue(patient.is_unknown)
+
+    def test_book_handles_missing_name(self):
+        result = tools.book_appointment(None, "9876500011", "Madhu", self.tomorrow, "11:30")
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(Patient.objects.get(mobile="9876500011").full_name, "Phone booking")
+
 
 # ---- Fake Anthropic client for the tool-use loop --------------------------
 
@@ -122,6 +138,7 @@ class AgentLoopTests(TestCase):
         self.assertEqual(Appointment.objects.count(), 1)
 
 
+@override_settings(DEBUG=True)  # dev skip-verification path; fail-closed tested separately
 class WebhookTests(TestCase):
     def setUp(self):
         make_doctor()
@@ -157,4 +174,10 @@ class WebhookTests(TestCase):
         resp = self.client.post(
             reverse("voice:incoming"), {"CallSid": "CA5"}, HTTP_X_TWILIO_SIGNATURE="wrong"
         )
+        self.assertEqual(resp.status_code, 403)
+
+    @override_settings(DEBUG=False, TWILIO_AUTH_TOKEN="", ALLOWED_HOSTS=["testserver"])
+    def test_webhook_fails_closed_in_prod_without_token(self):
+        # No token + not DEBUG must REJECT (not accept) — the critical fail-open fix.
+        resp = self.client.post(reverse("voice:incoming"), {"CallSid": "CA6"})
         self.assertEqual(resp.status_code, 403)

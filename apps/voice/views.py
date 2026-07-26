@@ -19,10 +19,12 @@ def _voice():
 
 
 def _verified(request):
-    """Verify the request came from Twilio (skipped if no auth token set)."""
+    """Verify the request came from Twilio. Fail CLOSED: with no auth token we
+    only skip verification in DEBUG (local dev); in production a missing token
+    rejects the request rather than accepting a forgeable webhook."""
     token = settings.TWILIO_AUTH_TOKEN
     if not token:
-        return True
+        return settings.DEBUG
     url = request.build_absolute_uri()
     params = {k: request.POST[k] for k in request.POST}
     signature = request.headers.get("X-Twilio-Signature", "")
@@ -103,6 +105,8 @@ def turn(request):
 @csrf_exempt
 @require_POST
 def status_callback(request):
+    if not _verified(request):
+        return HttpResponse(status=403)
     call_sid = request.POST.get("CallSid", "")
     call_status = request.POST.get("CallStatus", "")
     if call_status in ("completed", "failed", "busy", "no-answer"):

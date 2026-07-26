@@ -4,6 +4,7 @@ touches the database — plain Django, fully testable without the LLM."""
 from datetime import datetime, time, timedelta
 
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import DoctorProfile
@@ -108,10 +109,13 @@ def _get_or_create_patient(name, mobile):
     existing = Patient.objects.filter(mobile=mobile, is_active=True).order_by("-created_at").first()
     if existing:
         return existing
-    # Provisional record — reception completes DPDP consent + age on arrival.
+    # Provisional record — flagged unknown; reception completes identity, sex,
+    # age and DPDP consent on arrival. sex is a valid choice (not blank).
     return Patient.objects.create(
-        full_name=name.strip() or "Phone booking",
+        full_name=(name or "").strip() or "Phone booking",
         mobile=mobile,
+        sex=Patient.Sex.OTHER,
+        is_unknown=True,
         privacy_notice_deferred=True,
         privacy_notice_deferred_reason="Phone booking — consent captured at reception",
     )
@@ -129,23 +133,25 @@ def book_appointment(patient_name, mobile, doctor_name, date_str, time_str):
     except ValueError:
         return {"ok": False, "error": "Time must be HH:MM (24-hour)."}
 
-    clashes = Appointment.objects.filter(
-        doctor=doctor, date=on_date, slot_time=slot_time,
-        status__in=[Appointment.Status.BOOKED, Appointment.Status.CHECKED_IN],
-    ).count()
-    if clashes >= settings.OPD_SLOT_CAPACITY:
-        return {"ok": False, "error": "That slot is taken. Offer another time."}
-
     mobile_digits = "".join(c for c in (mobile or "") if c.isdigit())[-10:]
     if len(mobile_digits) != 10:
         return {"ok": False, "error": "Need a valid 10-digit mobile number."}
 
-    patient = _get_or_create_patient(patient_name, mobile_digits)
-    appointment = Appointment.objects.create(
-        patient=patient, doctor=doctor, date=on_date, slot_time=slot_time,
-        duration_minutes=settings.OPD_DEFAULT_SLOT_MINUTES,
-        notes="Booked by AI phone agent",
-    )
+    slot_label = slot_time.strftime("%H:%M")
+    # Serialize per-doctor so two concurrent phone lines can't double-book, and
+    # only accept a slot that available_slots would actually offer (future,
+    # within OPD hours, not already taken).
+    with transaction.atomic():
+        DoctorProfile.objects.select_for_update().get(pk=doctor.pk)
+        avail = available_slots(doctor_name, date_str, limit=10000)
+        if not avail.get("ok") or slot_label not in avail["slots"]:
+            return {"ok": False, "error": "That time is not available. Offer one of the free slots."}
+        patient = _get_or_create_patient(patient_name, mobile_digits)
+        appointment = Appointment.objects.create(
+            patient=patient, doctor=doctor, date=on_date, slot_time=slot_time,
+            duration_minutes=settings.OPD_DEFAULT_SLOT_MINUTES,
+            notes="Booked by AI phone agent",
+        )
     _queue_confirmation(appointment)
     return {
         "ok": True,

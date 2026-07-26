@@ -193,8 +193,14 @@ VOICE_TTS_LANGUAGE = os.environ.get("VOICE_TTS_LANGUAGE", "en-IN")
 VOICE_TTS_VOICE = os.environ.get("VOICE_TTS_VOICE", "Polly.Aditi")
 VOICE_MAX_TURNS = int(os.environ.get("VOICE_MAX_TURNS", "16"))
 # Verify inbound webhooks came from Twilio (X-Twilio-Signature). Leave blank to
-# skip verification for local testing.
+# skip verification for local testing only.
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_AUTH_TOKEN", "")
+
+if not DEBUG and VOICE_AGENT_ENABLED and not TWILIO_AUTH_TOKEN:
+    raise ImproperlyConfigured(
+        "TWILIO_AUTH_TOKEN must be set when VOICE_AGENT_ENABLED and DEBUG is off — "
+        "otherwise the /voice/ webhooks would accept unauthenticated, forgeable requests."
+    )
 
 PIN_LENGTH = 6
 PIN_SESSION_TIMEOUT_SECONDS = int(os.environ.get("PIN_SESSION_TIMEOUT_SECONDS", "300"))
