@@ -1,0 +1,113 @@
+{% extends "site/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Book an appointment" %} · {{ hospital.name }}{% endblock %}
+
+{% block content %}
+<section class="wrap section booking">
+  <h1>{% trans "Book an appointment" %}</h1>
+  <p class="prose">
+    {% trans "Choose a doctor and a day, then pick a free time. You will be asked for your name and mobile number only — everything else is completed at the reception desk." %}
+  </p>
+
+  {% comment %}
+    Step 1 — a plain GET form so choosing a doctor/day reloads the free times
+    without any JavaScript. The small script below just saves a tap.
+  {% endcomment %}
+  <form method="get" action="{% url 'site:book' %}" class="pick-form" id="pick-form">
+    <div class="field">
+      <label for="doctor">{% trans "Doctor" %}</label>
+      <select name="doctor" id="doctor" required>
+        <option value="">{% trans "Select a doctor" %}</option>
+        {% for doctor in form.fields.doctor.queryset %}
+          <option value="{{ doctor.pk }}"
+            {% if form.doctor.value|stringformat:"s" == doctor.pk|stringformat:"s" %}selected{% endif %}>
+            {{ doctor.display_name }}{% if doctor.specialty %} — {{ doctor.specialty }}{% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="date">{% trans "Date" %}</label>
+      <input type="date" name="date" id="date" required
+             value="{{ form.date.value|default:'' }}"
+             min="{{ min_date }}" max="{{ max_date }}">
+    </div>
+    <button class="btn btn-ghost" type="submit">{% trans "Show free times" %}</button>
+  </form>
+
+  {% if picked %}
+    {% if slots %}
+      <form method="post" action="{% url 'site:book' %}" class="book-form">
+        {% csrf_token %}
+        <input type="hidden" name="doctor" value="{{ form.doctor.value }}">
+        <input type="hidden" name="date" value="{{ form.date.value }}">
+
+        <fieldset class="field">
+          <legend>{% trans "Choose a time" %}</legend>
+          {% if form.slot_time.errors %}<p class="field-error">{{ form.slot_time.errors.0 }}</p>{% endif %}
+          <div class="slots">
+            {% for slot in slots %}
+              <label class="slot">
+                <input type="radio" name="slot_time" value="{{ slot }}" required
+                       {% if form.slot_time.value == slot %}checked{% endif %}>
+                <span>{{ slot }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="id_full_name">{% trans "Patient name" %}</label>
+          {{ form.full_name }}
+          {% if form.full_name.errors %}<p class="field-error">{{ form.full_name.errors.0 }}</p>{% endif %}
+        </div>
+
+        <div class="field">
+          <label for="id_mobile">{% trans "Mobile number" %}</label>
+          {{ form.mobile }}
+          {% if form.mobile.errors %}<p class="field-error">{{ form.mobile.errors.0 }}</p>{% endif %}
+          <p class="hint">{% trans "We send the confirmation to this number." %}</p>
+        </div>
+
+        <div class="field">
+          <label for="id_reason">{% trans "Reason for visit (optional)" %}</label>
+          {{ form.reason }}
+        </div>
+
+        {# Honeypot — hidden from people, filled in by naive bots. #}
+        <div class="hp" aria-hidden="true">
+          <label for="id_website">{% trans "Leave this empty" %}</label>
+          <input type="text" name="website" id="id_website" tabindex="-1" autocomplete="off">
+        </div>
+
+        <button class="btn btn-primary" type="submit">{% trans "Confirm appointment" %}</button>
+        <p class="hint">
+          {% trans "By booking you agree that we may contact you about this appointment. Your full details and consent are recorded at reception." %}
+        </p>
+      </form>
+    {% else %}
+      <p class="empty">
+        {% trans "No free times left for that doctor on that day." %}
+        {% if hospital.phone %}
+          {% blocktrans with phone=hospital.phone %}Please try another day, or call {{ phone }}.{% endblocktrans %}
+        {% endif %}
+      </p>
+    {% endif %}
+  {% endif %}
+</section>
+
+<script>
+  // Progressive enhancement only: the form works without this.
+  (function () {
+    var form = document.getElementById('pick-form');
+    if (!form) return;
+    ['doctor', 'date'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', function () {
+        if (form.doctor.value && form.date.value) form.submit();
+      });
+    });
+  })();
+</script>
+{% endblock %}

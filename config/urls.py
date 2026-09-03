@@ -7,10 +7,14 @@ from django.urls import include, path
 
 from apps.core.views import dashboard, healthz
 
+# The public website (apps.site) owns "/". Everything else here is the clinical
+# system and stays LAN-only in production — see the Caddy path allowlist and
+# apps.site.middleware.PublicSiteIsolationMiddleware. Adding a route to this
+# list does NOT publish it on manwatkarhospital.in.
 urlpatterns = [
-    path("", dashboard, name="dashboard"),
     path("favicon.ico", lambda request: HttpResponse(status=204), name="favicon"),
     path("healthz/", healthz, name="healthz"),
+    path("dashboard/", dashboard, name="dashboard"),
     path("admin/", admin.site.urls),
     path(
         "login/",
@@ -28,6 +32,8 @@ urlpatterns = [
     path("assist/", include("apps.assist.urls")),
     path("attendance/", include("apps.attendance.urls")),
     path("voice/", include("apps.voice.urls")),
+    # Last: the public site's "" home route must not shadow the paths above.
+    path("", include("apps.site.urls")),
 ]
 
 if settings.DEBUG:

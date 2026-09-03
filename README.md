@@ -24,7 +24,31 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-Open `http://127.0.0.1:8000/`.
+Open `http://127.0.0.1:8000/` for the public hospital website, and
+`http://127.0.0.1:8000/dashboard/` for the staff application.
+
+## Public website vs. clinical system
+
+`/` is the public hospital website (`apps.site`) — home, doctors, services,
+contact, and online appointment booking that writes straight into the OPD list.
+Everything else is the clinical system.
+
+In production the two are served on **different hostnames from the same server**:
+
+| Hostname               | Serves                    | Reachable from |
+| ---------------------- | ------------------------- | -------------- |
+| `manwatkarhospital.in` | public website only       | the internet   |
+| `hms.hospital.lan`     | the whole clinical system | hospital LAN   |
+
+A request arriving on a hostname listed in `PUBLIC_SITE_HOSTS` is refused
+anything outside the public site — by Caddy's path allowlist, and again by
+`apps.site.middleware.PublicSiteIsolationMiddleware`, so a proxy
+misconfiguration alone cannot put patient records on the internet. Adding a
+route to `config/urls.py` does **not** publish it.
+
+Go-live steps, including the GoDaddy DNS records and what to do if the
+hospital's line is behind CGNAT, are in
+[`ops/deployment/go-live-manwatkarhospital.md`](ops/deployment/go-live-manwatkarhospital.md).
 
 ## Docker development / server
 

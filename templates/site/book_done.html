@@ -1,0 +1,43 @@
+{% extends "site/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Appointment confirmed" %} · {{ hospital.name }}{% endblock %}
+
+{% block content %}
+<section class="wrap section">
+  {% if confirmation %}
+    <div class="confirm-card">
+      <span class="tick" aria-hidden="true">✓</span>
+      <h1>{% trans "Appointment confirmed" %}</h1>
+      <dl class="confirm-details">
+        <dt>{% trans "Patient" %}</dt><dd>{{ confirmation.name }}</dd>
+        <dt>{% trans "Doctor" %}</dt><dd>{{ confirmation.doctor }}</dd>
+        <dt>{% trans "Date" %}</dt><dd>{{ confirmation.date }}</dd>
+        <dt>{% trans "Time" %}</dt><dd>{{ confirmation.time }}</dd>
+        {% if confirmation.fee %}<dt>{% trans "Consultation fee" %}</dt><dd>₹{{ confirmation.fee }}</dd>{% endif %}
+      </dl>
+      <p class="prose">
+        {% trans "Please arrive about 10 minutes early and report at the reception desk. Bring any previous prescriptions or reports." %}
+      </p>
+      {% if hospital.phone %}
+        <p class="prose">
+          {% blocktrans with phone=hospital.phone %}To change or cancel, call {{ phone }}.{% endblocktrans %}
+        </p>
+      {% endif %}
+    </div>
+  {% else %}
+    {% comment %}
+      Reached directly, or a refresh after the session entry was consumed. Do
+      not re-render someone's appointment details on a bare GET.
+    {% endcomment %}
+    <h1>{% trans "Nothing to show" %}</h1>
+    <p class="prose">
+      {% trans "This confirmation has already been shown." %}
+      {% if hospital.phone %}
+        {% blocktrans with phone=hospital.phone %}If you are unsure whether your booking went through, please call {{ phone }}.{% endblocktrans %}
+      {% endif %}
+    </p>
+  {% endif %}
+  <p><a class="btn btn-ghost" href="{% url 'site:home' %}">{% trans "Back to home" %}</a></p>
+</section>
+{% endblock %}

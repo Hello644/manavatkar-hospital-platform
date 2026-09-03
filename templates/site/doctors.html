@@ -1,0 +1,33 @@
+{% extends "site/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Our doctors" %} · {{ hospital.name }}{% endblock %}
+
+{% block content %}
+<section class="wrap section">
+  <h1>{% trans "Our doctors" %}</h1>
+  {% if doctors %}
+    <div class="cards">
+      {% for doctor in doctors %}
+        <article class="card doctor-card">
+          <span class="avatar" aria-hidden="true">{{ doctor.display_name|slice:":1" }}</span>
+          <h2>{{ doctor.display_name }}</h2>
+          {% if doctor.qualifications %}<p class="quals">{{ doctor.qualifications }}</p>{% endif %}
+          {% if doctor.specialty %}<p class="specialty">{{ doctor.specialty }}</p>{% endif %}
+          {% if doctor.public_bio %}<p>{{ doctor.public_bio|linebreaksbr }}</p>{% endif %}
+          {% if doctor.accepts_online_booking %}
+            <a class="btn btn-primary btn-small"
+               href="{% url 'site:book' %}?doctor={{ doctor.pk }}">{% trans "Book" %}</a>
+          {% elif hospital.phone %}
+            <a class="btn btn-ghost btn-small" href="tel:{{ hospital.phone }}">{% trans "Call to book" %}</a>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="prose">
+      {% blocktrans with phone=hospital.phone %}Doctor profiles are being updated. Please call {{ phone }} for consultation timings.{% endblocktrans %}
+    </p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "site/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<section class="hero">
+  <div class="wrap">
+    <h1>{{ hospital.name }}</h1>
+    {% if hospital.name_marathi %}<p class="hero-mr">{{ hospital.name_marathi }}</p>{% endif %}
+    {% if hospital.tagline %}<p class="hero-tagline">{{ hospital.tagline }}</p>{% endif %}
+    <div class="hero-actions">
+      {% if booking_open %}
+        <a class="btn btn-primary" href="{% url 'site:book' %}">{% trans "Book an appointment" %}</a>
+      {% endif %}
+      {% if hospital.phone %}
+        <a class="btn btn-ghost" href="tel:{{ hospital.phone }}">{% trans "Call" %} {{ hospital.phone }}</a>
+      {% endif %}
+    </div>
+    {% if hospital.opd_hours_text %}
+      <p class="hero-hours">{{ hospital.opd_hours_text }}</p>
+    {% endif %}
+  </div>
+</section>
+
+{% if announcements %}
+  <section class="wrap notices">
+    {% for note in announcements %}
+      <article class="notice">
+        <h2>{{ note.title }}</h2>
+        {% if note.body %}<p>{{ note.body|linebreaksbr }}</p>{% endif %}
+      </article>
+    {% endfor %}
+  </section>
+{% endif %}
+
+{% if hospital.emergency_phone %}
+  <section class="wrap">
+    <p class="emergency-banner">
+      {% trans "Medical emergency?" %}
+      <a href="tel:{{ hospital.emergency_phone }}">{% trans "Call casualty" %}: {{ hospital.emergency_phone }}</a>
+    </p>
+  </section>
+{% endif %}
+
+{% if hospital.about_text %}
+  <section class="wrap section">
+    <h2>{% trans "About the hospital" %}</h2>
+    <p class="prose">{{ hospital.about_text|linebreaksbr }}</p>
+  </section>
+{% endif %}
+
+{% if services %}
+  <section class="wrap section">
+    <h2>{% trans "Our services" %}</h2>
+    <div class="cards">
+      {% for service in services %}
+        <article class="card">
+          {% if service.icon %}<span class="card-icon" aria-hidden="true">{{ service.icon }}</span>{% endif %}
+          <h3>{{ service.name }}</h3>
+          {% if service.name_marathi %}<p class="mr">{{ service.name_marathi }}</p>{% endif %}
+          {% if service.description %}<p>{{ service.description }}</p>{% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+{% if doctors %}
+  <section class="wrap section">
+    <h2>{% trans "Our doctors" %}</h2>
+    <div class="cards">
+      {% for doctor in doctors %}
+        <article class="card doctor-card">
+          <span class="avatar" aria-hidden="true">{{ doctor.display_name|slice:":1" }}</span>
+          <h3>{{ doctor.display_name }}</h3>
+          {% if doctor.qualifications %}<p class="quals">{{ doctor.qualifications }}</p>{% endif %}
+          {% if doctor.specialty %}<p class="specialty">{{ doctor.specialty }}</p>{% endif %}
+        </article>
+      {% endfor %}
+    </div>
+    <p><a class="link-more" href="{% url 'site:doctors' %}">{% trans "See all doctors" %} →</a></p>
+  </section>
+{% endif %}
+
+<section class="wrap section">
+  <h2>{% trans "Visit us" %}</h2>
+  {% if hospital.full_address %}<p class="prose">{{ hospital.full_address }}</p>{% endif %}
+  <p>
+    <a class="btn btn-ghost" target="_blank" rel="noopener noreferrer"
+       href="https://www.google.com/maps/search/?api=1&amp;query={{ hospital.directions_query|urlencode }}">
+      {% trans "Get directions" %}
+    </a>
+  </p>
+</section>
+{% endblock %}

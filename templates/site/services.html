@@ -1,0 +1,26 @@
+{% extends "site/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Services" %} · {{ hospital.name }}{% endblock %}
+
+{% block content %}
+<section class="wrap section">
+  <h1>{% trans "Services" %}</h1>
+  {% if services %}
+    <div class="cards">
+      {% for service in services %}
+        <article class="card">
+          {% if service.icon %}<span class="card-icon" aria-hidden="true">{{ service.icon }}</span>{% endif %}
+          <h2>{{ service.name }}</h2>
+          {% if service.name_marathi %}<p class="mr">{{ service.name_marathi }}</p>{% endif %}
+          {% if service.description %}<p>{{ service.description|linebreaksbr }}</p>{% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="prose">
+      {% blocktrans with phone=hospital.phone %}Our service list is being updated. Please call {{ phone }} and we will help you.{% endblocktrans %}
+    </p>
+  {% endif %}
+</section>
+{% endblock %}

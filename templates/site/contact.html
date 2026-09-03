@@ -1,0 +1,45 @@
+{% extends "site/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Contact" %} · {{ hospital.name }}{% endblock %}
+
+{% block content %}
+<section class="wrap section">
+  <h1>{% trans "Contact us" %}</h1>
+
+  <div class="contact-grid">
+    <div>
+      <h2>{% trans "Address" %}</h2>
+      <p class="prose">{{ hospital.full_address|default:hospital.address_line }}</p>
+      <p>
+        <a class="btn btn-ghost" target="_blank" rel="noopener noreferrer"
+           href="https://www.google.com/maps/search/?api=1&amp;query={{ hospital.directions_query|urlencode }}">
+          {% trans "Get directions" %}
+        </a>
+      </p>
+    </div>
+
+    <div>
+      <h2>{% trans "Reach us" %}</h2>
+      {% if hospital.phone %}
+        <p>{% trans "Reception" %}: <a href="tel:{{ hospital.phone }}">{{ hospital.phone }}</a></p>
+      {% endif %}
+      {% if hospital.emergency_phone %}
+        <p class="emergency">{% trans "Emergency" %}: <a href="tel:{{ hospital.emergency_phone }}">{{ hospital.emergency_phone }}</a></p>
+      {% endif %}
+      {% if hospital.whatsapp_number %}
+        <p>WhatsApp: <a href="https://wa.me/91{{ hospital.whatsapp_number }}" rel="noopener noreferrer">{{ hospital.whatsapp_number }}</a></p>
+      {% endif %}
+      {% if hospital.public_email %}
+        <p>{% trans "Email" %}: <a href="mailto:{{ hospital.public_email }}">{{ hospital.public_email }}</a></p>
+      {% endif %}
+    </div>
+
+    <div>
+      <h2>{% trans "OPD timings" %}</h2>
+      <p class="prose">{{ hospital.opd_hours_text }}</p>
+      <p><a class="btn btn-primary" href="{% url 'site:book' %}">{% trans "Book an appointment" %}</a></p>
+    </div>
+  </div>
+</section>
+{% endblock %}

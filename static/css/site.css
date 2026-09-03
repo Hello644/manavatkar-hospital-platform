@@ -1,0 +1,215 @@
+/* Public website for manwatkarhospital.in.
+   Separate from app.css: the staff app optimises for density on a desk
+   monitor, this optimises for a patient on a phone over a 3G connection.
+   No web fonts, no frameworks, no JS dependency. */
+
+:root {
+  --teal: #0f766e;
+  --teal-dark: #115e59;
+  --teal-light: #ccfbf1;
+  --ink: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --bg: #ffffff;
+  --bg-soft: #f8fafc;
+  --danger: #b91c1c;
+  --radius: 12px;
+  --wrap: 1080px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Devanagari", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.6;
+}
+
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 1.25rem; }
+.section { padding: 2.5rem 1.25rem; }
+.prose { max-width: 62ch; color: var(--muted); }
+
+a { color: var(--teal-dark); }
+
+.skip {
+  position: absolute; left: -9999px;
+}
+.skip:focus {
+  left: 1rem; top: 1rem; z-index: 10; background: #fff;
+  padding: .5rem .75rem; border-radius: var(--radius);
+}
+
+/* ---- header ---- */
+.site-header {
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  position: sticky; top: 0; z-index: 5;
+}
+.header-inner {
+  display: flex; align-items: center; gap: 1rem;
+  min-height: 68px; flex-wrap: wrap;
+}
+.logo { display: flex; align-items: center; gap: .6rem; text-decoration: none; color: inherit; }
+.logo-mark {
+  display: grid; place-items: center;
+  width: 36px; height: 36px; border-radius: 10px;
+  background: var(--teal); color: #fff; font-size: 1.1rem;
+}
+.logo-text { display: flex; flex-direction: column; line-height: 1.2; }
+.logo-text strong { font-size: 1.05rem; }
+.logo-text em { font-style: normal; font-size: .82rem; color: var(--muted); }
+
+.site-nav { margin-left: auto; display: flex; gap: 1.25rem; align-items: center; }
+.site-nav a { text-decoration: none; color: var(--ink); font-size: .95rem; }
+.site-nav a:hover { color: var(--teal); }
+.site-nav .cta {
+  background: var(--teal); color: #fff;
+  padding: .5rem .9rem; border-radius: var(--radius);
+}
+.nav-button { display: none; margin-left: auto; font-size: 1.5rem; cursor: pointer; }
+
+@media (max-width: 720px) {
+  .nav-button { display: block; }
+  .site-nav {
+    display: none; width: 100%; flex-direction: column;
+    align-items: flex-start; gap: .75rem; padding-bottom: 1rem;
+  }
+  .nav-toggle:checked ~ .site-nav { display: flex; }
+}
+
+/* ---- hero ---- */
+.hero {
+  background: linear-gradient(160deg, var(--teal-light), #fff 70%);
+  padding: 3.5rem 0 3rem;
+  text-align: center;
+}
+.hero h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 2.6rem); }
+.hero-mr { margin: .25rem 0 0; font-size: 1.15rem; color: var(--teal-dark); }
+.hero-tagline { margin: .75rem auto 0; max-width: 46ch; color: var(--muted); }
+.hero-actions { margin-top: 1.5rem; display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+.hero-hours { margin-top: 1.25rem; font-size: .9rem; color: var(--muted); }
+
+/* ---- buttons ---- */
+.btn {
+  display: inline-block; padding: .7rem 1.25rem;
+  border-radius: var(--radius); text-decoration: none;
+  font-weight: 600; font-size: .95rem; border: 1px solid transparent;
+  cursor: pointer;
+}
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-dark); }
+.btn-ghost { background: #fff; color: var(--teal-dark); border-color: var(--teal); }
+.btn-ghost:hover { background: var(--teal-light); }
+.btn-small { padding: .45rem .85rem; font-size: .85rem; }
+
+/* ---- cards ---- */
+.cards {
+  display: grid; gap: 1rem; margin-top: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.card {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 1.25rem; background: var(--bg-soft);
+}
+.card h2, .card h3 { margin: .25rem 0 .35rem; font-size: 1.05rem; }
+.card p { margin: .25rem 0; color: var(--muted); font-size: .92rem; }
+.card-icon { font-size: 1.6rem; }
+.card .mr { color: var(--teal-dark); }
+.doctor-card .quals { font-size: .85rem; }
+.doctor-card .specialty { color: var(--teal-dark); font-weight: 600; }
+.avatar {
+  display: grid; place-items: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--teal); color: #fff; font-weight: 700; font-size: 1.2rem;
+}
+.link-more { display: inline-block; margin-top: 1rem; font-weight: 600; }
+
+/* ---- notices ---- */
+.notices { margin-top: 1.5rem; display: grid; gap: .75rem; }
+.notice {
+  border-left: 4px solid var(--teal); background: var(--teal-light);
+  padding: .9rem 1.1rem; border-radius: 0 var(--radius) var(--radius) 0;
+}
+.notice h2 { margin: 0 0 .25rem; font-size: 1rem; }
+.notice p { margin: 0; font-size: .92rem; }
+
+.emergency-banner {
+  margin-top: 1.5rem; padding: .9rem 1.1rem;
+  border: 1px solid #fecaca; background: #fef2f2;
+  border-radius: var(--radius); font-weight: 600;
+}
+.emergency-banner a, .emergency a { color: var(--danger); }
+
+.flash {
+  margin: 1rem 0 0; padding: .8rem 1rem; border-radius: var(--radius);
+  background: var(--teal-light);
+}
+.flash.error { background: #fef2f2; color: var(--danger); }
+
+/* ---- forms ---- */
+.pick-form, .book-form {
+  margin-top: 1.5rem; max-width: 620px;
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 1.25rem;
+}
+.pick-form { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: 1.1rem; }
+.pick-form .field { margin-bottom: 0; flex: 1 1 200px; }
+.field label, .field legend { font-weight: 600; font-size: .9rem; }
+.field input[type="text"], .field input[type="date"], .field select {
+  padding: .65rem .75rem; border: 1px solid var(--line);
+  border-radius: 10px; font-size: 1rem; font-family: inherit; width: 100%;
+}
+.field input:focus, .field select:focus { outline: 2px solid var(--teal); border-color: var(--teal); }
+.hint { margin: .3rem 0 0; font-size: .82rem; color: var(--muted); }
+.field-error { margin: .3rem 0 0; font-size: .85rem; color: var(--danger); }
+fieldset.field { border: 0; padding: 0; margin-bottom: 1.25rem; }
+
+.slots { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+.slot input { position: absolute; opacity: 0; }
+.slot span {
+  display: inline-block; padding: .5rem .8rem;
+  border: 1px solid var(--teal); border-radius: 10px;
+  color: var(--teal-dark); font-size: .9rem; cursor: pointer;
+}
+.slot input:checked + span { background: var(--teal); color: #fff; }
+.slot input:focus-visible + span { outline: 2px solid var(--ink); }
+
+/* Honeypot: off-screen rather than display:none, which some bots skip. */
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+.empty { margin-top: 1.5rem; color: var(--muted); }
+
+/* ---- confirmation ---- */
+.confirm-card {
+  max-width: 520px; border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 2rem; background: var(--bg-soft);
+}
+.tick {
+  display: grid; place-items: center; width: 48px; height: 48px;
+  border-radius: 50%; background: var(--teal); color: #fff; font-size: 1.5rem;
+}
+.confirm-card h1 { margin: 1rem 0 1.25rem; font-size: 1.5rem; }
+.confirm-details { display: grid; grid-template-columns: auto 1fr; gap: .4rem 1.25rem; margin: 0 0 1.25rem; }
+.confirm-details dt { color: var(--muted); font-size: .9rem; }
+.confirm-details dd { margin: 0; font-weight: 600; }
+
+/* ---- contact ---- */
+.contact-grid {
+  display: grid; gap: 2rem; margin-top: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.contact-grid h2 { font-size: 1.05rem; }
+.contact-grid p { color: var(--muted); }
+
+/* ---- footer ---- */
+.site-footer { border-top: 1px solid var(--line); background: var(--bg-soft); margin-top: 3rem; }
+.footer-grid {
+  display: grid; gap: 2rem; padding-top: 2.5rem; padding-bottom: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.footer-grid h3 { font-size: .95rem; margin: 0 0 .5rem; }
+.footer-grid p { margin: .25rem 0; font-size: .9rem; color: var(--muted); }
+.footer-legal { padding-bottom: 2rem; }
+.footer-legal p { font-size: .82rem; color: var(--muted); margin: 0; }

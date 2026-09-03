@@ -87,6 +87,21 @@ class DoctorProfile(models.Model):
     is_locum = models.BooleanField(default=False)
     valid_from = models.DateField(null=True, blank=True)
     valid_until = models.DateField(null=True, blank=True)
+    # Public website (apps.site). Both default to False so adding a doctor never
+    # publishes them by accident — listing a name and opening their calendar to
+    # the internet are deliberate, separately revocable acts.
+    show_on_website = models.BooleanField(
+        "Show on public website",
+        default=False,
+        help_text="List this doctor on the public hospital website.",
+    )
+    accepts_online_booking = models.BooleanField(
+        default=False,
+        help_text="Let patients book this doctor's OPD slots from the website.",
+    )
+    public_bio = models.TextField(
+        blank=True, help_text="Short paragraph shown on the public website."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -105,6 +120,13 @@ class DoctorProfile(models.Model):
             raise ValidationError("Locum doctors need both valid-from and valid-until dates.")
         if self.valid_from and self.valid_until and self.valid_until < self.valid_from:
             raise ValidationError({"valid_until": "Valid until cannot be before valid from."})
+        if self.accepts_online_booking and not self.show_on_website:
+            raise ValidationError(
+                {"accepts_online_booking": (
+                    "Online booking needs a public profile — tick 'Show on public "
+                    "website' too, or patients cannot see who they are booking."
+                )}
+            )
 
     def can_prescribe_on(self, day=None):
         day = day or timezone.localdate()

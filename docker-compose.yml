@@ -25,8 +25,13 @@ services:
       # in settings.py). Override here only for a deliberate debug build.
       DJANGO_DEBUG: "0"
       DATABASE_URL: postgres://${POSTGRES_USER:-hospital}:${POSTGRES_PASSWORD:-change-this-db-password}@db:5432/${POSTGRES_DB:-hospital}
-      DJANGO_ALLOWED_HOSTS: ${APP_DOMAIN:-localhost},localhost,127.0.0.1,web
-      DJANGO_CSRF_TRUSTED_ORIGINS: https://${APP_DOMAIN:-localhost}
+      DJANGO_ALLOWED_HOSTS: ${PUBLIC_DOMAIN:-localhost},www.${PUBLIC_DOMAIN:-localhost},${LAN_HOSTNAME:-hms.hospital.lan},localhost,127.0.0.1,web
+      DJANGO_CSRF_TRUSTED_ORIGINS: https://${PUBLIC_DOMAIN:-localhost},https://www.${PUBLIC_DOMAIN:-localhost},https://${LAN_HOSTNAME:-hms.hospital.lan}
+      # Hostnames that serve the PUBLIC WEBSITE ONLY. Requests arriving on these
+      # are refused anything outside the public site by
+      # apps.site.middleware.PublicSiteIsolationMiddleware. The LAN hostname is
+      # deliberately absent — that is the one that gets the clinical app.
+      PUBLIC_SITE_HOSTS: ${PUBLIC_DOMAIN:-localhost},www.${PUBLIC_DOMAIN:-localhost}
       FACE_SERVICE_URL: ${FACE_SERVICE_URL:-http://facesvc:8080}
       KIOSK_DEVICE_TOKEN: ${KIOSK_DEVICE_TOKEN:-}
     depends_on:
@@ -42,7 +47,8 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     environment:
-      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-localhost}
+      LAN_HOSTNAME: ${LAN_HOSTNAME:-hms.hospital.lan}
     ports:
       - "80:80"
       - "443:443"

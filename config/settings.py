@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "apps.assist",
     "apps.attendance",
     "apps.voice",
+    "apps.site",
 ]
 
 MIDDLEWARE = [
@@ -72,6 +73,10 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Must sit before the clinical middleware: on a public hostname it refuses
+    # everything outside the public site, so nothing downstream ever sees a
+    # request for a patient record from the internet.
+    "apps.site.middleware.PublicSiteIsolationMiddleware",
     "apps.accounts.middleware.ForcePinChangeMiddleware",
     "auditlog.middleware.AuditlogMiddleware",
 ]
@@ -92,6 +97,7 @@ TEMPLATES = [
                 "django.template.context_processors.i18n",
                 "apps.core.context_processors.hospital",
                 "apps.core.context_processors.user_roles",
+                "apps.site.context_processors.public_site",
             ],
         },
     },
@@ -142,6 +148,27 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ── Public website (apps.site) ───────────────────────────────────────────────
+# Hostnames that serve ONLY the public site. A request arriving on one of these
+# cannot reach the clinical app: PublicSiteIsolationMiddleware 404s everything
+# outside the "site" URL namespace, and Caddy refuses the paths a step earlier.
+# Leave blank for a LAN-only install — then the whole app answers on every host.
+PUBLIC_SITE_HOSTS = [
+    host.strip().lower()
+    for host in os.environ.get("PUBLIC_SITE_HOSTS", "").split(",")
+    if host.strip()
+]
+
+# A public hostname that is also in ALLOWED_HOSTS but somehow not isolated would
+# put patient records on the internet, so refuse to boot on the contradiction.
+_unlisted = [h for h in PUBLIC_SITE_HOSTS if h not in {a.lower() for a in ALLOWED_HOSTS}]
+if _unlisted and "*" not in ALLOWED_HOSTS:
+    raise ImproperlyConfigured(
+        f"PUBLIC_SITE_HOSTS contains {_unlisted} which are missing from "
+        "DJANGO_ALLOWED_HOSTS. Django would reject those requests before the "
+        "public site ever renders — add them to both."
+    )
 
 HOSPITAL_UHID_CODE = os.environ.get("HOSPITAL_UHID_CODE", "DMH").upper()
 HOSPITAL_PRIVACY_NOTICE_VERSION = os.environ.get(
