@@ -17,7 +17,11 @@
      load leaves the timetable unreadable.
 */
 
+/* "only light" opts out of Chrome's Auto Dark Mode. Without it Chrome inverts
+   the page on phones set to dark, and an inverted medical page puts white text
+   on the emergency red and makes the OPD board hard to read. */
 :root{
+  color-scheme: only light;
   --paper:#f9faf8;        /* clinical white, faint green cast */
   --paper-2:#f2f4f0;
   --ink:#14181a;          /* near-black, green-grey */

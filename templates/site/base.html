@@ -1,4 +1,4 @@
-{% load static i18n %}<!doctype html>
+{% load static i18n %}{% load assets %}<!doctype html>
 <html lang="{{ LANGUAGE_CODE|default:'en' }}">
 <head>
   <meta charset="utf-8">
@@ -6,7 +6,7 @@
   <title>{% block title %}{{ hospital.name }}{% if hospital.city %}, {{ hospital.city }}{% endif %}{% endblock %}</title>
   <meta name="description" content="{% block description %}{{ hospital.name }}{% if hospital.city %}, {{ hospital.city }}{% endif %}. OPD twice daily. Casualty open 24 hours.{% endblock %}">
   <meta name="theme-color" content="#0e4a34">
-  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  <link rel="stylesheet" href="{% versioned_static 'css/site.css' %}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",

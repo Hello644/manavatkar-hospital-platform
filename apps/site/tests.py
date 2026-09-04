@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
@@ -475,6 +476,35 @@ class OpdBoardTests(TestCase):
                 f"board and booking disagree about {name} evening",
             )
             day += timedelta(days=1)
+
+
+class StaticAssetTests(TestCase):
+    """The stylesheet URL must change when the file does.
+
+    A browser once cached a failed response for /static/css/site.css and then
+    stopped asking for it: the server logged GET / 200 with no stylesheet
+    request at all, and the site rendered as unstyled black text. In production
+    WhiteNoise's manifest hashes the filename; this covers DEBUG.
+    """
+
+    @override_settings(DEBUG=True)
+    def test_stylesheet_url_is_versioned_in_debug(self):
+        import re
+
+        body = self.client.get(reverse("site:home")).content.decode()
+        href = re.search(r'<link rel="stylesheet" href="([^"]+)"', body).group(1)
+        self.assertRegex(href, r"^/static/css/site\.css\?v=\d+$", f"not cache-busted: {href}")
+
+    @override_settings(DEBUG=False)
+    def test_stylesheet_url_is_plain_when_not_debug(self):
+        """Production hashes the filename via the manifest, so no query string."""
+        body = self.client.get(reverse("site:home"), HTTP_HOST="testserver").content.decode()
+        self.assertIn("/static/css/site.css", body)
+        self.assertNotIn("site.css?v=", body)
+
+    def test_page_opts_out_of_forced_dark_mode(self):
+        css = (settings.BASE_DIR / "static" / "css" / "site.css").read_text()
+        self.assertIn("color-scheme: only light", css)
 
 
 class TemplateHygieneTests(TestCase):
