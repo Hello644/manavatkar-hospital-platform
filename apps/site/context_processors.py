@@ -1,4 +1,4 @@
-from django.conf import settings
+from .hosts import is_public_request
 
 
 def public_site(request):
@@ -8,6 +8,4 @@ def public_site(request):
     manwatkarhospital.in there is no reason to advertise where the clinical
     system lives, while on the LAN the same footer gives staff a way in.
     """
-    hosts = {h.lower() for h in getattr(settings, "PUBLIC_SITE_HOSTS", [])}
-    host = request.get_host().split(":")[0].lower() if hasattr(request, "get_host") else ""
-    return {"is_public_host": bool(hosts) and host in hosts}
+    return {"is_public_host": is_public_request(request)}

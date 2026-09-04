@@ -112,8 +112,9 @@ def book(request):
     mobile = booking.normalise_mobile(request.POST.get("mobile"))
     blocked = throttle.check(request, mobile)
     if blocked:
-        throttle.record(request, PublicBookingAttempt.Outcome.RATE_LIMITED, mobile, blocked)
-        messages.error(request, blocked)
+        message, reason = blocked
+        throttle.record(request, PublicBookingAttempt.Outcome.RATE_LIMITED, mobile, reason)
+        messages.error(request, message)
         return render(request, "site/book.html", {
             **_base_context(), "form": form, "slots": slots, "picked": True, **limits,
         })

@@ -200,6 +200,53 @@ class BookingFlowTests(TestCase):
         self.assertContains(resp, "valid 10-digit")
 
 
+class OpdCalendarTests(TestCase):
+    """PLAN.md: "OPD closed Tuesday evenings". Selling a slot the hospital does
+    not run sends a patient to a dark building, so the self-service grid has to
+    know the calendar."""
+
+    def setUp(self):
+        self.doctor = make_doctor()
+
+    def _next(self, weekday):
+        d = timezone.localdate() + timedelta(days=1)
+        while d.weekday() != weekday:
+            d += timedelta(days=1)
+        return d
+
+    def _slots(self, on_date):
+        from apps.opd import booking
+
+        result = booking.available_slots(self.doctor.display_name, on_date.isoformat(), limit=500)
+        return result["slots"] if result.get("ok") else []
+
+    def test_tuesday_offers_morning_but_no_evening(self):
+        slots = self._slots(self._next(1))
+        self.assertIn("10:00", slots)
+        self.assertTrue(all(s < "13:00" for s in slots), f"evening slot offered on Tuesday: {slots}")
+
+    def test_weekday_offers_both_sessions(self):
+        slots = self._slots(self._next(2))  # Wednesday
+        self.assertIn("10:00", slots)
+        self.assertIn("17:00", slots)
+
+    def test_sunday_is_closed_by_default(self):
+        self.assertEqual(self._slots(self._next(6)), [])
+
+    @override_settings(OPD_SUNDAY_OPEN=True)
+    def test_sunday_can_be_opened_by_configuration(self):
+        self.assertIn("10:00", self._slots(self._next(6)))
+
+    def test_booking_a_tuesday_evening_is_refused(self):
+        tuesday = self._next(1)
+        resp = self.client.post(reverse("site:book"), {
+            "doctor": self.doctor.pk, "date": tuesday.isoformat(),
+            "slot_time": "18:00", "full_name": "Ravi", "mobile": "9876543210",
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(Appointment.objects.count(), 0)
+
+
 class BookingAbuseTests(TestCase):
     def setUp(self):
         self.doctor = make_doctor()
@@ -228,9 +275,11 @@ class BookingAbuseTests(TestCase):
             PublicBookingAttempt.objects.create(
                 ip_address="127.0.0.1", outcome=PublicBookingAttempt.Outcome.REJECTED
             )
+        from .throttle import REFUSED
+
         resp = self._post()
         self.assertEqual(Appointment.objects.count(), 0)
-        self.assertContains(resp, "Too many booking attempts")
+        self.assertContains(resp, REFUSED)
 
     def test_one_mobile_cannot_hold_many_open_appointments(self):
         from .throttle import MOBILE_OPEN_APPOINTMENTS
@@ -243,8 +292,10 @@ class BookingAbuseTests(TestCase):
                 patient=patient, doctor=self.doctor,
                 date=self.tomorrow + timedelta(days=i + 1), slot_time="12:00",
             )
+        from .throttle import REFUSED
+
         resp = self._post()
-        self.assertContains(resp, "already has upcoming appointments")
+        self.assertContains(resp, REFUSED)
         self.assertEqual(Appointment.objects.count(), MOBILE_OPEN_APPOINTMENTS)
 
     def test_purge_command_drops_only_stale_rows(self):
@@ -352,6 +403,107 @@ class TemplateHygieneTests(TestCase):
             body = self.client.get(reverse(name)).content.decode()
             self.assertNotIn("{#", body, name)
             self.assertNotIn("{%", body, name)
+
+
+@AS_DEPLOYED
+class HostSpoofingTests(TestCase):
+    """Regression tests for a confirmed breach: `Host: manwatkarhospital.in.`
+    (the legal fully-qualified form, which curl and browsers accept) did not
+    match PUBLIC_SITE_HOSTS, so the request fell through as "LAN" and
+    /patients/ answered over the internet. Django strips the trailing dot when
+    checking ALLOWED_HOSTS, so the request got that far quite happily."""
+
+    VARIANTS = [
+        "manwatkarhospital.in",
+        "manwatkarhospital.in.",              # the breach
+        "MANWATKARHOSPITAL.IN",
+        "MaNwAtKaRhOsPiTaL.In.",
+        "manwatkarhospital.in:8000",
+        "manwatkarhospital.in.:8000",
+        "www.manwatkarhospital.in",
+        "www.manwatkarhospital.in.",
+    ]
+
+    def setUp(self):
+        make_doctor()
+        self.staff = User.objects.create_superuser(username="boss2", password="pw12345678")
+
+    def test_every_spelling_of_the_public_host_is_isolated(self):
+        self.client.force_login(self.staff)
+        for host in self.VARIANTS:
+            resp = self.client.get("/patients/", HTTP_HOST=host)
+            self.assertEqual(resp.status_code, 404, f"{host} reached the clinical app")
+
+    def test_every_spelling_still_serves_the_public_site(self):
+        for host in self.VARIANTS:
+            resp = self.client.get(reverse("site:home"), HTTP_HOST=host)
+            self.assertEqual(resp.status_code, 200, f"{host} lost the public site")
+
+    def test_x_forwarded_host_cannot_downgrade_to_lan(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get(
+            "/patients/", HTTP_HOST="manwatkarhospital.in",
+            HTTP_X_FORWARDED_HOST="hms.hospital.lan",
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_append_slash_does_not_confirm_internal_paths(self):
+        """/patients returned 301 -> /patients/ while /nonsense returned 404,
+        handing the internet a directory of our internal apps."""
+        for path in ("/patients", "/opd", "/admin", "/attendance"):
+            resp = self.client.get(path, HTTP_HOST=PUBLIC_HOST)
+            self.assertEqual(resp.status_code, 404, f"{path} leaked via APPEND_SLASH")
+
+    def test_append_slash_still_works_for_public_pages_and_on_lan(self):
+        self.assertEqual(
+            self.client.get("/doctors", HTTP_HOST=PUBLIC_HOST).status_code, 301
+        )
+        self.assertEqual(self.client.get("/patients", HTTP_HOST=LAN_HOST).status_code, 301)
+
+
+class BookingOracleTests(TestCase):
+    """The booking form must not answer "is this number a patient here?" for an
+    anonymous stranger. Every refusal reads identically."""
+
+    def setUp(self):
+        self.doctor = make_doctor()
+        self.tomorrow = timezone.localdate() + timedelta(days=1)
+
+    def _post(self, mobile):
+        return self.client.post(reverse("site:book"), {
+            "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
+            "slot_time": "11:00", "full_name": "Ravi", "mobile": mobile,
+        })
+
+    def test_known_and_unknown_numbers_get_the_same_refusal(self):
+        from .throttle import MOBILE_OPEN_APPOINTMENTS, REFUSED
+
+        patient = Patient.objects.create(
+            full_name="Sunita", mobile="9822011223", privacy_notice_deferred=True
+        )
+        for i in range(MOBILE_OPEN_APPOINTMENTS):
+            Appointment.objects.create(
+                patient=patient, doctor=self.doctor,
+                date=self.tomorrow + timedelta(days=i + 1), slot_time="12:00",
+            )
+        # A number with appointments is refused...
+        known = self._post("9822011223")
+        self.assertContains(known, REFUSED)
+        # ...and nothing in the response distinguishes it from any other refusal.
+        self.assertNotContains(known, "already has")
+        self.assertNotContains(known, "upcoming")
+
+    def test_staff_still_see_the_real_reason_in_the_audit_log(self):
+        from .throttle import IP_ATTEMPTS_PER_HOUR
+
+        for _ in range(IP_ATTEMPTS_PER_HOUR):
+            PublicBookingAttempt.objects.create(
+                ip_address="127.0.0.1", outcome=PublicBookingAttempt.Outcome.REJECTED
+            )
+        self._post("9876543210")
+        latest = PublicBookingAttempt.objects.first()
+        self.assertEqual(latest.outcome, PublicBookingAttempt.Outcome.RATE_LIMITED)
+        self.assertIn("ip hourly limit", latest.detail)
 
 
 class DoctorPublishingTests(TestCase):

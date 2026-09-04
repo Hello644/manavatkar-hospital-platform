@@ -16,7 +16,10 @@ added to config/urls.py is private until someone deliberately publishes it.
 """
 
 from django.conf import settings
-from django.http import Http404
+from django.http import Http404, HttpResponseNotFound
+from django.urls import Resolver404, resolve
+
+from .hosts import is_public_request, public_hostnames
 
 # Telephony webhooks must be reachable from the internet or the AI phone
 # receptionist cannot answer a call — the provider POSTs to them. They are
@@ -41,14 +44,38 @@ class PublicSiteIsolationMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        return self.get_response(request)
+        response = self.get_response(request)
+        # CommonMiddleware's APPEND_SLASH turns /patients into a 301 pointing at
+        # /patients/. That redirect is produced from an unresolved URL, so
+        # process_view never runs and the internet gets a working directory of
+        # our internal apps: /patients -> 301, /made-up -> 404. No data leaks,
+        # but it maps the attack surface and confirms the domain fronts a
+        # clinical system. Collapse those redirects to 404 on a public host.
+        if (
+            response.status_code == 301
+            and public_hostnames()
+            and is_public_request(request)
+            and not self._is_public_path(response.headers.get("Location", ""))
+        ):
+            return HttpResponseNotFound("Not found")
+        return response
+
+    @staticmethod
+    def _is_public_path(location):
+        """True if a same-origin redirect target belongs to the public site."""
+        if not location.startswith("/"):
+            return True  # absolute/external redirect — not ours to police here
+        path = location.split("?", 1)[0].split("#", 1)[0]
+        try:
+            match = resolve(path)
+        except Resolver404:
+            return True  # goes nowhere anyway; let the 301 stand
+        return getattr(match, "namespace", None) == "site"
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        hosts = {h.lower() for h in getattr(settings, "PUBLIC_SITE_HOSTS", [])}
-        if not hosts:
+        if not public_hostnames():
             return None  # no public hostname configured — LAN-only deployment
-        host = request.get_host().split(":")[0].lower()
-        if host not in hosts:
+        if not is_public_request(request):
             return None  # LAN request: full clinical app
 
         resolver_match = request.resolver_match

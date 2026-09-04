@@ -29,7 +29,6 @@ class HospitalProfile(models.Model):
     # empty, so the site stays presentable before all of this is filled in.
     tagline = models.CharField(
         max_length=200, blank=True,
-        default="Caring for Bhusawal families since 1985",
         help_text="One line under the hospital name on the website home page.",
     )
     about_text = models.TextField(
@@ -42,7 +41,7 @@ class HospitalProfile(models.Model):
     public_email = models.EmailField(blank=True)
     opd_hours_text = models.CharField(
         max_length=240, blank=True,
-        default="Mon–Sat 10:00–13:00 and 17:00–20:00 · Sunday closed",
+        default="Mon–Sat 10:00–13:00 and 17:00–20:00 · Tuesday evening closed",
         help_text="Human-readable OPD timings for the website and footer.",
     )
     city = models.CharField(max_length=80, blank=True, default="Bhusawal")

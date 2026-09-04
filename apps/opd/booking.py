@@ -19,8 +19,29 @@ from apps.accounts.models import DoctorProfile
 from apps.opd.models import Appointment
 from apps.patients.models import Patient
 
-# Default OPD windows for slot generation (Tue evening closed per the plan).
-WORKING_WINDOWS = [(time(10, 0), time(13, 0)), (time(17, 0), time(20, 0))]
+# Default OPD windows for slot generation.
+MORNING = (time(10, 0), time(13, 0))
+EVENING = (time(17, 0), time(20, 0))
+WORKING_WINDOWS = [MORNING, EVENING]
+
+# PLAN.md: "OPD closed Tuesday evenings". Monday is weekday() == 0, so Tuesday
+# is 1. Without this the website would sell Tuesday-evening slots and patients
+# would arrive at a closed OPD.
+TUESDAY = 1
+# Sunday closure is an ASSUMPTION, not something PLAN.md states — it is the norm
+# for an Indian OPD, but confirm it with the hospital. Set OPD_SUNDAY_OPEN=1 to
+# run a normal Sunday OPD.
+SUNDAY = 6
+
+
+def windows_for(on_date):
+    """The OPD windows actually running on a given date."""
+    weekday = on_date.weekday()
+    if weekday == SUNDAY and not settings.OPD_SUNDAY_OPEN:
+        return []
+    if weekday == TUESDAY:
+        return [MORNING]
+    return WORKING_WINDOWS
 
 # How far ahead self-service booking may reach. Beyond this the caller is asked
 # to phone the hospital, so the doctor's leave/OT calendar stays authoritative.
@@ -115,7 +136,7 @@ def available_slots(doctor_name, date_str, limit=6):
     now = timezone.localtime()
     free = []
     step = timedelta(minutes=settings.OPD_DEFAULT_SLOT_MINUTES)
-    for start, end in WORKING_WINDOWS:
+    for start, end in windows_for(on_date):
         cursor = datetime.combine(on_date, start)
         end_dt = datetime.combine(on_date, end)
         while cursor < end_dt:

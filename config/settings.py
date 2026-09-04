@@ -66,6 +66,11 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # ABOVE CommonMiddleware on purpose. Response middleware runs bottom-up, so
+    # sitting below it meant this ran INSIDE Common and never saw Common's
+    # APPEND_SLASH redirect — which leaked /patients -> 301 /patients/ to the
+    # internet while /nonsense returned 404, a free map of our internal apps.
+    "apps.site.middleware.PublicSiteIsolationMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -73,10 +78,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # Must sit before the clinical middleware: on a public hostname it refuses
-    # everything outside the public site, so nothing downstream ever sees a
-    # request for a patient record from the internet.
-    "apps.site.middleware.PublicSiteIsolationMiddleware",
     "apps.accounts.middleware.ForcePinChangeMiddleware",
     "auditlog.middleware.AuditlogMiddleware",
 ]
@@ -176,6 +177,10 @@ HOSPITAL_PRIVACY_NOTICE_VERSION = os.environ.get(
 )
 
 OPD_DEFAULT_SLOT_MINUTES = int(os.environ.get("OPD_DEFAULT_SLOT_MINUTES", "10"))
+# Self-service (website + phone agent) slot grid honours the OPD calendar:
+# PLAN.md records "OPD closed Tuesday evenings". Sunday closure is the common
+# default but is NOT in the plan — flip this on if the hospital runs Sunday OPD.
+OPD_SUNDAY_OPEN = env_bool("OPD_SUNDAY_OPEN", default=False)
 OPD_SLOT_CAPACITY = int(os.environ.get("OPD_SLOT_CAPACITY", "1"))
 
 # Thermal token printer (ESC/POS over RAW/JetDirect port 9100). When a host is

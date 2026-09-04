@@ -24,9 +24,15 @@ MOBILE_BOOKINGS_PER_DAY = 3
 # number from silently reserving a week of slots.
 MOBILE_OPEN_APPOINTMENTS = 2
 
-TOO_MANY = (
-    "Too many booking attempts from this device. Please try again later, "
-    "or call the hospital and we will book it for you."
+# ONE message for every refusal. Distinct messages would turn this open form
+# into an oracle: type any mobile number, and the reply tells you whether that
+# person has an upcoming appointment here. That is personal data about a third
+# party handed to an anonymous stranger — a DPDP disclosure, and worse for a
+# hospital, where "has an appointment" is itself sensitive. Staff still see the
+# real reason in the PublicBookingAttempt log.
+REFUSED = (
+    "We could not complete this booking online. Please call the hospital "
+    "and we will book it for you."
 )
 
 
@@ -49,16 +55,20 @@ def record(request, outcome, mobile="", detail=""):
 
 
 def check(request, mobile):
-    """Return an error string if this request should be refused, else None."""
+    """Return (public_message, internal_reason) if refused, else None.
+
+    The caller shows the message and logs the reason; they are deliberately
+    different — see REFUSED.
+    """
     now = timezone.now()
     ip = client_ip(request)
 
     if ip:
         attempts = PublicBookingAttempt.objects.filter(ip_address=ip)
         if attempts.filter(created_at__gte=now - timedelta(hours=1)).count() >= IP_ATTEMPTS_PER_HOUR:
-            return TOO_MANY
+            return REFUSED, "ip hourly limit"
         if attempts.filter(created_at__gte=now - timedelta(days=1)).count() >= IP_ATTEMPTS_PER_DAY:
-            return TOO_MANY
+            return REFUSED, "ip daily limit"
 
     if mobile:
         booked_today = PublicBookingAttempt.objects.filter(
@@ -67,10 +77,7 @@ def check(request, mobile):
             created_at__gte=now - timedelta(days=1),
         ).count()
         if booked_today >= MOBILE_BOOKINGS_PER_DAY:
-            return (
-                "This number has already booked today. Please call the hospital "
-                "if you need another appointment."
-            )
+            return REFUSED, "mobile daily booking limit"
 
         open_appointments = Appointment.objects.filter(
             patient__mobile=mobile,
@@ -78,8 +85,5 @@ def check(request, mobile):
             status=Appointment.Status.BOOKED,
         ).count()
         if open_appointments >= MOBILE_OPEN_APPOINTMENTS:
-            return (
-                "This number already has upcoming appointments with us. "
-                "Please call the hospital to add another."
-            )
+            return REFUSED, "mobile open-appointment cap"
     return None
