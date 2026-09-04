@@ -507,6 +507,48 @@ class StaticAssetTests(TestCase):
         self.assertIn("color-scheme: only light", css)
 
 
+class StaticExportTests(TestCase):
+    """The export is published to a CDN, so anything it contains is public
+    forever. These guard what may and may not travel."""
+
+    def setUp(self):
+        make_doctor()
+        Service.objects.create(name="General Medicine", name_marathi="सामान्य वैद्यक")
+
+    def _export(self):
+        import tempfile
+        from pathlib import Path
+
+        out = Path(tempfile.mkdtemp()) / "dist"
+        call_command("export_public_site", out=str(out), verbosity=0)
+        return out
+
+    def test_export_contains_no_route_into_the_clinical_system(self):
+        out = self._export()
+        blob = "".join(p.read_text() for p in out.rglob("*") if p.is_file())
+        for needle in ("/login/", "/dashboard/", "/patients/", "/admin/",
+                       "/attendance/", "Staff sign in", "csrfmiddlewaretoken"):
+            self.assertNotIn(needle, blob, f"static export would publish {needle}")
+
+    def test_export_shows_the_telephone_instead_of_a_dead_form(self):
+        book = (self._export() / "book" / "index.html").read_text()
+        self.assertIn("Book by telephone", book)
+        self.assertNotIn('<form method="post"', book)
+
+    def test_export_still_carries_the_opd_board(self):
+        home = (self._export() / "index.html").read_text()
+        for day in ("Monday", "सोमवार", "Tuesday", "Closed", "बंद"):
+            self.assertIn(day, home)
+        self.assertIn("10:00–15:00", home)
+
+    def test_export_writes_every_page_and_the_stylesheet(self):
+        out = self._export()
+        for rel in ("index.html", "doctors/index.html", "services/index.html",
+                    "contact/index.html", "book/index.html", "robots.txt",
+                    "sitemap.xml", "static/css/site.css", "vercel.json"):
+            self.assertTrue((out / rel).exists(), f"missing {rel}")
+
+
 class TemplateHygieneTests(TestCase):
     """Django's {# #} comment cannot span lines — a multi-line one is not a
     comment at all, it renders to the visitor as literal text. This shipped

@@ -305,3 +305,48 @@ docker compose exec backup ls -lh /backups
   become reachable on the public domain, and they verify a Twilio HMAC
   signature. Setting `VOICE_AGENT_ENABLED=1` without `TWILIO_AUTH_TOKEN` refuses
   to boot.
+
+---
+
+## Live now: public site on Vercel, clinical system still on the LAN
+
+`manwatkarhospital.in` serves a **static export** of the public site from Vercel.
+Nothing else about the architecture changed: the clinical system, the database
+and every patient record stay on the hospital server described above.
+
+Why static rather than running Django on Vercel: the booking form writes Patient
+and Appointment rows, so a deployment able to serve it would need the clinical
+database beside it in a cloud region. That reverses the decision this document
+is built around. The export therefore ships hospital name, doctors,
+departments, notices and the OPD board, and nothing else.
+
+### What is deployed
+
+| | |
+| --- | --- |
+| Vercel project | `manwatkar-hospital` (team `hello644s-projects`) |
+| DNS | `A @ -> 76.76.21.21` at GoDaddy; `CNAME www -> manwatkarhospital.in` |
+| TLS | Let's Encrypt, issued by Vercel, auto-renewing |
+| Booking | Telephone only, because the export has no database |
+
+### Publishing a content change
+
+Content lives in the clinical database, so edits happen in the admin on the LAN
+and then get re-exported. From the project root:
+
+```bash
+python manage.py export_public_site && vercel deploy dist --prod --yes --scope hello644s-projects
+```
+
+`export_public_site` refuses to write a page containing `/login/`, `/dashboard/`,
+`/patients/`, `/admin/`, `/attendance/`, a staff sign-in link or a CSRF token, so
+a mistake in the templates cannot push a route into the clinical system onto a
+CDN. It builds as if the request arrived on the public domain, which is what
+keeps the staff sign-in link out.
+
+### When the hospital server is ready
+
+Point `A @` back at the hospital's public IP, and online booking starts working
+again with no code change: `PUBLIC_BOOKING_ENABLED` defaults to on wherever the
+database is reachable. Keep the Vercel project as a fallback for the days the
+hospital line is down.

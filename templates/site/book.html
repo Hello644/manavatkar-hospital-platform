@@ -6,6 +6,21 @@
   <div class="wrap">
     <p class="rail">{% trans "Book" %}<small>{% trans "नोंदणी" %}</small></p>
     <div class="col">
+{% if booking_offline %}
+      {% comment %}
+        This build has no clinical database, so it cannot take a booking. Show
+        the telephone rather than a form that would fail on submit.
+      {% endcomment %}
+      <p class="lede">{% trans "Book by telephone." %}</p>
+      <p class="body">{% trans "Call reception and they will note your name and the sitting you want. There is no fixed appointment time: come during the sitting and you are seen in token order." %}</p>
+      {% if hospital.phone %}
+        <p class="callout"><a href="tel:{{ hospital.phone }}">{{ hospital.phone }}</a></p>
+      {% endif %}
+      <div class="col">{% include "site/_board.html" %}</div>
+    </div>
+  </div>
+</section>
+{% else %}
       <p class="lede">{% trans "Reserve a place in a sitting. Reception gives you a token when you arrive." %}</p>
       <p class="body">{% trans "We do not give a fixed appointment time. Come any time during the sitting you choose, and the doctor sees patients in token order." %}</p>
 
@@ -91,6 +106,7 @@
     </div>
   </div>
 </section>
+{% endif %}
 
 <script>
   (function () {

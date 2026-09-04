@@ -27,6 +27,11 @@ from .models import Announcement, PublicBookingAttempt, Service
 CONFIRMATION_SESSION_KEY = "public_booking_confirmation"
 
 
+def _booking_enabled():
+    """False in the static export, which has no database to book into."""
+    return getattr(settings, "PUBLIC_BOOKING_ENABLED", True)
+
+
 def _public_doctors():
     return DoctorProfile.objects.filter(show_on_website=True).order_by("display_name")
 
@@ -46,7 +51,10 @@ def _base_context():
 
 def home(request):
     ctx = _base_context()
-    ctx["booking_open"] = _public_doctors().filter(accepts_online_booking=True).exists()
+    ctx["booking_open"] = (
+        _booking_enabled()
+        and _public_doctors().filter(accepts_online_booking=True).exists()
+    )
     ctx["page"] = "home"
     return render(request, "site/home.html", ctx)
 
@@ -86,6 +94,10 @@ def _selected(request, data):
 
 @require_http_methods(["GET", "POST"])
 def book(request):
+    if not _booking_enabled():
+        return render(request, "site/book.html", {
+            **_base_context(), "page": "book", "booking_offline": True,
+        })
     today = timezone.localdate()
     limits = {
         "min_date": today.isoformat(),

@@ -171,6 +171,13 @@ if _unlisted and "*" not in ALLOWED_HOSTS:
         "public site ever renders — add them to both."
     )
 
+# Online booking writes Patient and Appointment rows, so it only works where
+# the clinical database lives — the hospital LAN. The statically exported copy
+# of the public site (apps.site.management.commands.export_public_site) has no
+# database at all, so it builds with this off and the booking page tells people
+# to phone reception instead of showing a form that cannot submit.
+PUBLIC_BOOKING_ENABLED = env_bool("PUBLIC_BOOKING_ENABLED", default=True)
+
 HOSPITAL_UHID_CODE = os.environ.get("HOSPITAL_UHID_CODE", "DMH").upper()
 HOSPITAL_PRIVACY_NOTICE_VERSION = os.environ.get(
     "HOSPITAL_PRIVACY_NOTICE_VERSION", "2026-07-02-v1"
