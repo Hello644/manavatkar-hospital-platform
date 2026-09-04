@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ hospital.name }}{% endblock %}</title>
   <meta name="description" content="{% block description %}{{ hospital.name }}{% if hospital.city %} — {{ hospital.city }}, {{ hospital.state }}{% endif %}. {{ hospital.tagline }}{% endblock %}">
-  <meta name="theme-color" content="#0f766e">
+  <meta name="theme-color" content="#04070d">
   <link rel="stylesheet" href="{% static 'css/site.css' %}">
-  {# Local-business structured data so Google shows timings and the phone number. #}
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "Hospital",
     "name": "{{ hospital.name|escapejs }}",
     "telephone": "{{ hospital.phone|escapejs }}",
+    "availableService": {"@type": "MedicalProcedure", "name": "24-hour emergency"},
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "{{ hospital.address_line|escapejs }}",
@@ -28,6 +28,22 @@
 <body>
   <a class="skip" href="#main">{% trans "Skip to content" %}</a>
 
+  {% comment %}
+    Casualty runs 24/7, so it gets the top strip on every page — the one thing a
+    frightened visitor at 3am must not have to hunt for.
+  {% endcomment %}
+  <div class="emg-bar">
+    <div class="wrap">
+      <span class="dot" aria-hidden="true"></span>
+      <span>{% trans "EMERGENCY OPEN 24 HOURS" %} · {% trans "अपघात विभाग २४ तास" %}</span>
+      {% if hospital.emergency_phone %}
+        <a href="tel:{{ hospital.emergency_phone }}">{{ hospital.emergency_phone }}</a>
+      {% elif hospital.phone %}
+        <a href="tel:{{ hospital.phone }}">{{ hospital.phone }}</a>
+      {% endif %}
+    </div>
+  </div>
+
   <header class="site-header">
     <div class="wrap header-inner">
       <a class="logo" href="{% url 'site:home' %}">
@@ -37,16 +53,14 @@
           {% if hospital.name_marathi %}<em>{{ hospital.name_marathi }}</em>{% endif %}
         </span>
       </a>
-
       <input type="checkbox" id="nav-toggle" class="nav-toggle" hidden>
       <label for="nav-toggle" class="nav-button" aria-label="{% trans 'Menu' %}">☰</label>
-
       <nav class="site-nav">
         <a href="{% url 'site:home' %}">{% trans "Home" %}</a>
         <a href="{% url 'site:doctors' %}">{% trans "Doctors" %}</a>
         <a href="{% url 'site:services' %}">{% trans "Services" %}</a>
         <a href="{% url 'site:contact' %}">{% trans "Contact" %}</a>
-        <a class="cta" href="{% url 'site:book' %}">{% trans "Book appointment" %}</a>
+        <a class="cta" href="{% url 'site:book' %}">{% trans "Book now" %}</a>
       </nav>
     </div>
   </header>
@@ -54,9 +68,7 @@
   <main id="main">
     {% if messages %}
       <div class="wrap">
-        {% for message in messages %}
-          <p class="flash {{ message.tags }}">{{ message }}</p>
-        {% endfor %}
+        {% for message in messages %}<p class="flash {{ message.tags }}">{{ message }}</p>{% endfor %}
       </div>
     {% endif %}
     {% block content %}{% endblock %}
@@ -73,9 +85,7 @@
       <div>
         <h3>{% trans "OPD timings" %}</h3>
         <p>{{ hospital.opd_hours_text }}</p>
-        {% if hospital.emergency_phone %}
-          <p class="emergency">{% trans "Emergency" %}: <a href="tel:{{ hospital.emergency_phone }}">{{ hospital.emergency_phone }}</a></p>
-        {% endif %}
+        <p class="emergency">{% trans "Emergency" %}: {% trans "open 24 hours" %}</p>
       </div>
       <div>
         <h3>{% trans "Quick links" %}</h3>
@@ -83,18 +93,27 @@
         <p><a href="{% url 'site:book' %}">{% trans "Book an appointment" %}</a></p>
         <p><a href="{% url 'site:contact' %}">{% trans "Find us" %}</a></p>
         {% comment %}
-          Staff sign-in is offered only on the hospital LAN. On the public
-          domain the clinical app is not reachable, so advertising it would be
-          noise at best and a target at worst.
+          Staff sign-in is offered only on the hospital LAN. On the public domain
+          the clinical app is unreachable, so advertising it would be noise at
+          best and a target at worst.
         {% endcomment %}
-        {% if not is_public_host %}
-          <p><a href="{% url 'login' %}">{% trans "Staff sign in" %}</a></p>
-        {% endif %}
+        {% if not is_public_host %}<p><a href="{% url 'login' %}">{% trans "Staff sign in" %}</a></p>{% endif %}
       </div>
     </div>
     <div class="wrap footer-legal">
       <p>&copy; {% now "Y" %} {{ hospital.name }}. {% trans "All rights reserved." %}</p>
     </div>
   </footer>
+
+  <script>
+    // Progressive enhancement only — everything is readable without it.
+    (function () {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+      }, { threshold: 0.12 });
+      document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
+    })();
+  </script>
 </body>
 </html>

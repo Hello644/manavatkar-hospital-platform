@@ -34,7 +34,7 @@ class AppointmentBookingForm(forms.Form):
         label=_("Date"),
         widget=forms.DateInput(attrs={"type": "date"}),
     )
-    slot_time = forms.ChoiceField(label=_("Time"), choices=[])
+    session = forms.ChoiceField(label=_("Sitting"), choices=[])
     reason = forms.CharField(
         label=_("Reason for visit (optional)"), max_length=120, required=False,
         widget=forms.TextInput(attrs={"placeholder": _("e.g. fever, follow-up")}),
@@ -42,15 +42,16 @@ class AppointmentBookingForm(forms.Form):
     # Honeypot: hidden from humans by CSS, irresistible to naive form bots.
     website = forms.CharField(required=False, widget=forms.HiddenInput())
 
-    def __init__(self, *args, slot_choices=None, **kwargs):
+    def __init__(self, *args, session_choices=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["doctor"].queryset = DoctorProfile.objects.filter(
             accepts_online_booking=True, show_on_website=True
         ).order_by("display_name")
-        # Slots depend on the doctor+date the visitor picked, so the choices are
-        # injected by the view after it has resolved them. Validation still runs
-        # against this list, and booking re-checks under a row lock anyway.
-        self.fields["slot_time"].choices = [(s, s) for s in (slot_choices or [])]
+        # Which sittings run depends on the day, so the view injects them after
+        # resolving the date. booking.book_appointment re-checks anyway.
+        self.fields["session"].choices = [
+            (c["key"], f'{c["label"]} ({c["time"]})') for c in (session_choices or [])
+        ]
 
     def clean_mobile(self):
         digits = booking.normalise_mobile(self.cleaned_data["mobile"])

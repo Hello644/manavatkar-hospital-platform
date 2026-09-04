@@ -3,54 +3,59 @@
 
 {% block content %}
 <section class="hero">
+  <div class="aurora" aria-hidden="true"><span class="a"></span><span class="b"></span><span class="c"></span></div>
   <div class="wrap">
+    <span class="eyebrow">{% if hospital.city %}{{ hospital.city }} · {{ hospital.state }}{% else %}{% trans "Maharashtra" %}{% endif %}</span>
     <h1>{{ hospital.name }}</h1>
     {% if hospital.name_marathi %}<p class="hero-mr">{{ hospital.name_marathi }}</p>{% endif %}
     {% if hospital.tagline %}<p class="hero-tagline">{{ hospital.tagline }}</p>{% endif %}
     <div class="hero-actions">
       {% if booking_open %}
-        <a class="btn btn-primary" href="{% url 'site:book' %}">{% trans "Book an appointment" %}</a>
+        <a class="btn btn-primary" href="{% url 'site:book' %}">{% trans "Book an appointment" %} →</a>
       {% endif %}
       {% if hospital.phone %}
         <a class="btn btn-ghost" href="tel:{{ hospital.phone }}">{% trans "Call" %} {{ hospital.phone }}</a>
       {% endif %}
     </div>
-    {% if hospital.opd_hours_text %}
-      <p class="hero-hours">{{ hospital.opd_hours_text }}</p>
-    {% endif %}
   </div>
 </section>
 
-{% if announcements %}
-  <section class="wrap notices">
-    {% for note in announcements %}
-      <article class="notice">
-        <h2>{{ note.title }}</h2>
-        {% if note.body %}<p>{{ note.body|linebreaksbr }}</p>{% endif %}
-      </article>
+{% comment %} Hours as a moving strip — the single fact patients ask for most. {% endcomment %}
+<div class="ticker" aria-label="{% trans 'Opening hours' %}">
+  <div class="ticker-track" aria-hidden="true">
+    {% for i in "12" %}
+      <span>{% trans "OPD" %} <b>{% trans "10:00–15:00" %}</b></span>
+      <span>{% trans "OPD" %} <b>{% trans "18:00–22:00" %}</b></span>
+      <span>{% trans "Emergency" %} <b>{% trans "24 hours" %}</b></span>
+      <span>{% trans "Tuesday + Saturday evening" %} <b>{% trans "closed" %}</b></span>
+      <span>{% trans "No appointment number — walk in during the sitting" %}</span>
     {% endfor %}
-  </section>
-{% endif %}
+  </div>
+</div>
 
-{% if hospital.emergency_phone %}
-  <section class="wrap">
-    <p class="emergency-banner">
-      {% trans "Medical emergency?" %}
-      <a href="tel:{{ hospital.emergency_phone }}">{% trans "Call casualty" %}: {{ hospital.emergency_phone }}</a>
-    </p>
+{% if announcements %}
+  <section class="wrap section reveal">
+    <div class="notices">
+      {% for note in announcements %}
+        <article class="notice">
+          <h2>{{ note.title }}</h2>
+          {% if note.body %}<p>{{ note.body|linebreaksbr }}</p>{% endif %}
+        </article>
+      {% endfor %}
+    </div>
   </section>
 {% endif %}
 
 {% if hospital.about_text %}
-  <section class="wrap section">
-    <h2>{% trans "About the hospital" %}</h2>
+  <section class="wrap section reveal">
+    <div class="sec-head"><span class="sec-num">01</span><h2 class="big">{% trans "About" %}</h2></div>
     <p class="prose">{{ hospital.about_text|linebreaksbr }}</p>
   </section>
 {% endif %}
 
 {% if services %}
-  <section class="wrap section">
-    <h2>{% trans "Our services" %}</h2>
+  <section class="wrap section reveal">
+    <div class="sec-head"><span class="sec-num">02</span><h2 class="big">{% trans "What we treat" %}</h2></div>
     <div class="cards">
       {% for service in services %}
         <article class="card">
@@ -65,11 +70,11 @@
 {% endif %}
 
 {% if doctors %}
-  <section class="wrap section">
-    <h2>{% trans "Our doctors" %}</h2>
+  <section class="wrap section reveal">
+    <div class="sec-head"><span class="sec-num">03</span><h2 class="big">{% trans "Our doctors" %}</h2></div>
     <div class="cards">
       {% for doctor in doctors %}
-        <article class="card doctor-card">
+        <article class="card">
           <span class="avatar" aria-hidden="true">{{ doctor.display_name|slice:":1" }}</span>
           <h3>{{ doctor.display_name }}</h3>
           {% if doctor.qualifications %}<p class="quals">{{ doctor.qualifications }}</p>{% endif %}
@@ -77,18 +82,19 @@
         </article>
       {% endfor %}
     </div>
-    <p><a class="link-more" href="{% url 'site:doctors' %}">{% trans "See all doctors" %} →</a></p>
+    <a class="link-more" href="{% url 'site:doctors' %}">{% trans "See all doctors" %} →</a>
   </section>
 {% endif %}
 
-<section class="wrap section">
-  <h2>{% trans "Visit us" %}</h2>
+<section class="wrap section reveal">
+  <div class="sec-head"><span class="sec-num">04</span><h2 class="big">{% trans "Visit us" %}</h2></div>
   {% if hospital.full_address %}<p class="prose">{{ hospital.full_address }}</p>{% endif %}
-  <p>
+  <div class="hero-actions" style="justify-content:flex-start;margin-top:1.8rem">
     <a class="btn btn-ghost" target="_blank" rel="noopener noreferrer"
        href="https://www.google.com/maps/search/?api=1&amp;query={{ hospital.directions_query|urlencode }}">
       {% trans "Get directions" %}
     </a>
-  </p>
+    {% if booking_open %}<a class="btn btn-primary" href="{% url 'site:book' %}">{% trans "Book an appointment" %}</a>{% endif %}
+  </div>
 </section>
 {% endblock %}

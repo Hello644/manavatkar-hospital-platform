@@ -6,17 +6,17 @@ the agent (and its tests) can keep calling ``tools.available_slots`` etc.
 """
 
 from apps.opd.booking import (  # noqa: F401  (re-exported for the agent + tests)
-    WORKING_WINDOWS,
-    available_slots,
+    SESSIONS,
+    available_sessions,
     find_doctors,
     find_patient,
 )
 from apps.opd.booking import book_appointment as _book_appointment
 
 
-def book_appointment(patient_name, mobile, doctor_name, date_str, time_str):
+def book_appointment(patient_name, mobile, doctor_name, date_str, session_key):
     return _book_appointment(
-        patient_name, mobile, doctor_name, date_str, time_str, source="AI phone agent"
+        patient_name, mobile, doctor_name, date_str, session_key, source="AI phone agent"
     )
 
 
@@ -29,8 +29,12 @@ TOOL_SCHEMAS = [
         "input_schema": {"type": "object", "properties": {}},
     },
     {
-        "name": "available_slots",
-        "description": "Free appointment times for a doctor on a date. Use before booking.",
+        "name": "available_sessions",
+        "description": (
+            "Which OPD sittings run for a doctor on a date. The hospital does NOT "
+            "use numbered time slots — patients are booked into a sitting and seen "
+            "in token order. Use before booking."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
@@ -52,8 +56,8 @@ TOOL_SCHEMAS = [
     {
         "name": "book_appointment",
         "description": (
-            "Book the appointment once you have name, 10-digit mobile, doctor, date "
-            "and an available HH:MM time."
+            "Book once you have name, 10-digit mobile, doctor, date and a sitting "
+            "(morning or evening)."
         ),
         "input_schema": {
             "type": "object",
@@ -62,9 +66,9 @@ TOOL_SCHEMAS = [
                 "mobile": {"type": "string"},
                 "doctor_name": {"type": "string"},
                 "date_str": {"type": "string"},
-                "time_str": {"type": "string", "description": "HH:MM 24-hour"},
+                "session_key": {"type": "string", "enum": ["morning", "evening"]},
             },
-            "required": ["patient_name", "mobile", "doctor_name", "date_str", "time_str"],
+            "required": ["patient_name", "mobile", "doctor_name", "date_str", "session_key"],
         },
     },
     {
@@ -79,11 +83,11 @@ TOOL_SCHEMAS = [
 
 DISPATCH = {
     "find_doctors": lambda i: find_doctors(),
-    "available_slots": lambda i: available_slots(i.get("doctor_name"), i.get("date_str")),
+    "available_sessions": lambda i: available_sessions(i.get("doctor_name"), i.get("date_str")),
     "find_patient": lambda i: find_patient(i.get("mobile")),
     "book_appointment": lambda i: book_appointment(
         i.get("patient_name"), i.get("mobile"), i.get("doctor_name"),
-        i.get("date_str"), i.get("time_str"),
+        i.get("date_str"), i.get("session_key"),
     ),
 }
 

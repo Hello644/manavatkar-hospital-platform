@@ -2,11 +2,15 @@
 
 Both self-service front doors — the AI phone receptionist (apps.voice) and the
 public website (apps.site) — book through this module rather than touching
-Appointment directly. Keeping one path means the race protection and the
-"never offer a slot we won't honour" rule are written once and tested once.
+Appointment directly, so the OPD calendar is written once and tested once.
 
-Staff booking goes through apps.opd.views/services instead; that path is
-authenticated and may legitimately override the public slot grid.
+Staff booking goes through apps.opd.views/forms instead; that path is
+authenticated and may legitimately override anything here.
+
+The OPD does not run numbered appointment slots. Patients are booked into a
+SESSION and seen in token order on arrival, which is how the desk actually
+works — so this module offers sessions, never a grid of times, and never
+refuses a booking because a "slot" is taken.
 """
 
 from datetime import datetime, time, timedelta
@@ -19,49 +23,58 @@ from apps.accounts.models import DoctorProfile
 from apps.opd.models import Appointment
 from apps.patients.models import Patient
 
-# Default OPD windows for slot generation.
-MORNING = (time(10, 0), time(13, 0))
-EVENING = (time(17, 0), time(20, 0))
-WORKING_WINDOWS = [MORNING, EVENING]
 
-# PLAN.md: "OPD closed Tuesday evenings". Monday is weekday() == 0, so Tuesday
-# is 1. Without this the website would sell Tuesday-evening slots and patients
-# would arrive at a closed OPD.
-TUESDAY = 1
-# The hospital confirmed Sunday OPD runs, so OPD_SUNDAY_OPEN defaults on and
-# Sunday gets the normal weekday windows. Kept as a switch so a future closure
-# needs a config change, not a deploy.
-SUNDAY = 6
+class Session:
+    """One OPD sitting. Unlimited capacity — token order, not clock slots."""
+
+    def __init__(self, key, start, end, label):
+        self.key, self.start, self.end, self.label = key, start, end, label
+
+    @property
+    def duration_minutes(self):
+        return int(
+            (datetime.combine(datetime.min, self.end)
+             - datetime.combine(datetime.min, self.start)).total_seconds() // 60
+        )
+
+    def human(self):
+        return f"{self.start:%H:%M}–{self.end:%H:%M}"
+
+    def as_dict(self):
+        return {"key": self.key, "label": self.label, "start": f"{self.start:%H:%M}",
+                "end": f"{self.end:%H:%M}", "time": self.human()}
 
 
-def windows_for(on_date):
-    """The OPD windows actually running on a given date."""
-    weekday = on_date.weekday()
-    if weekday == SUNDAY and not settings.OPD_SUNDAY_OPEN:
-        return []
-    if weekday == TUESDAY:
-        return [MORNING]
-    return WORKING_WINDOWS
+MORNING = Session("morning", time(10, 0), time(15, 0), "Morning OPD")
+EVENING = Session("evening", time(18, 0), time(22, 0), "Evening OPD")
+SESSIONS = {s.key: s for s in (MORNING, EVENING)}
+
+# weekday(): Mon=0 … Sat=5, Sun=6.
+TUESDAY, SATURDAY = 1, 5
+# Evening OPD does not run on these days. Mornings run every day, Sunday
+# included. Casualty is open 24/7 and is never booked through this module.
+EVENING_CLOSED = {TUESDAY, SATURDAY}
 
 # How far ahead self-service booking may reach. Beyond this the caller is asked
 # to phone the hospital, so the doctor's leave/OT calendar stays authoritative.
 MAX_ADVANCE_DAYS = 30
 
 
+def sessions_for(on_date):
+    """The OPD sittings that actually run on a given date."""
+    running = [MORNING]
+    if on_date.weekday() not in EVENING_CLOSED:
+        running.append(EVENING)
+    return running
+
+
 def find_doctors(public_only=False):
     qs = DoctorProfile.objects.order_by("display_name")
     if public_only:
         qs = qs.filter(show_on_website=True)
-    return {
-        "doctors": [
-            {
-                "name": d.display_name,
-                "specialty": d.specialty or "General",
-                "fee": str(d.consult_fee),
-            }
-            for d in qs
-        ]
-    }
+    return {"doctors": [{"name": d.display_name,
+                         "specialty": d.specialty or "General",
+                         "fee": str(d.consult_fee)} for d in qs]}
 
 
 def resolve_doctor(name):
@@ -77,9 +90,8 @@ def resolve_doctor(name):
     for token in name.split():
         if len(token) < 3:
             continue
-        hit = qs.filter(display_name__icontains=token).first() or qs.filter(
-            specialty__icontains=token
-        ).first()
+        hit = (qs.filter(display_name__icontains=token).first()
+               or qs.filter(specialty__icontains=token).first())
         if hit:
             return hit
     return None
@@ -101,21 +113,20 @@ def parse_date(date_str):
 
 
 def _bookable_date(on_date):
-    """(ok, error) — self-service may book today through MAX_ADVANCE_DAYS out."""
     if on_date is None:
         return False, "Please give a valid date, today or later."
     today = timezone.localdate()
     if on_date < today:
         return False, "Please give a valid date, today or later."
     if on_date > today + timedelta(days=MAX_ADVANCE_DAYS):
-        return False, (
-            f"Online booking is open {MAX_ADVANCE_DAYS} days ahead. "
-            "For a later date please call the hospital."
-        )
+        return False, (f"Online booking is open {MAX_ADVANCE_DAYS} days ahead. "
+                       "For a later date please call the hospital.")
     return True, ""
 
 
-def available_slots(doctor_name, date_str, limit=6):
+def available_sessions(doctor_name, date_str):
+    """Sittings a patient can still book. Capacity is never a reason to refuse —
+    only the calendar, and a session that has already ended today."""
     doctor = resolve_doctor(doctor_name)
     if doctor is None:
         return {"ok": False, "error": f"No doctor matching '{doctor_name}'."}
@@ -124,33 +135,14 @@ def available_slots(doctor_name, date_str, limit=6):
     if not ok:
         return {"ok": False, "error": error}
 
-    taken = {}
-    for slot in Appointment.objects.filter(
-        doctor=doctor,
-        date=on_date,
-        status__in=[Appointment.Status.BOOKED, Appointment.Status.CHECKED_IN],
-    ).values_list("slot_time", flat=True):
-        label = slot.strftime("%H:%M")
-        taken[label] = taken.get(label, 0) + 1
-
     now = timezone.localtime()
-    free = []
-    step = timedelta(minutes=settings.OPD_DEFAULT_SLOT_MINUTES)
-    for start, end in windows_for(on_date):
-        cursor = datetime.combine(on_date, start)
-        end_dt = datetime.combine(on_date, end)
-        while cursor < end_dt:
-            label = cursor.strftime("%H:%M")
-            is_future = on_date > now.date() or cursor.time() > now.time()
-            if is_future and taken.get(label, 0) < settings.OPD_SLOT_CAPACITY:
-                free.append(label)
-            cursor += step
-    return {
-        "ok": True,
-        "doctor": doctor.display_name,
-        "date": on_date.isoformat(),
-        "slots": free[:limit],
-    }
+    running = []
+    for session in sessions_for(on_date):
+        if on_date == now.date() and session.end <= now.time():
+            continue  # that sitting is over for today
+        running.append(session.as_dict())
+    return {"ok": True, "doctor": doctor.display_name,
+            "date": on_date.isoformat(), "sessions": running}
 
 
 def normalise_mobile(mobile):
@@ -186,8 +178,6 @@ def get_or_create_patient(name, mobile):
         if not given:
             break
         held = existing.name_normalized or normalize_name(existing.full_name)
-        # Exact, or one name contained in the other ("Sunita" vs "Sunita Patil"),
-        # which covers how people shorten their own names on a form.
         if given == held or (len(given) >= 4 and (given in held or held in given)):
             return existing
 
@@ -203,8 +193,10 @@ def get_or_create_patient(name, mobile):
     )
 
 
-def book_appointment(patient_name, mobile, doctor_name, date_str, time_str,
+def book_appointment(patient_name, mobile, doctor_name, date_str, session_key,
                      source="AI phone agent", reason=""):
+    """Book into a session. Never refuses for capacity — the OPD is walk-in
+    within its sitting, so the only refusals are calendar or data errors."""
     doctor = resolve_doctor(doctor_name)
     if doctor is None:
         return {"ok": False, "error": f"No doctor matching '{doctor_name}'."}
@@ -212,52 +204,46 @@ def book_appointment(patient_name, mobile, doctor_name, date_str, time_str,
     ok, error = _bookable_date(on_date)
     if not ok:
         return {"ok": False, "error": error}
-    try:
-        slot_time = datetime.strptime((time_str or "").strip(), "%H:%M").time()
-    except ValueError:
-        return {"ok": False, "error": "Time must be HH:MM (24-hour)."}
+
+    session = SESSIONS.get((session_key or "").strip().lower())
+    if session is None:
+        return {"ok": False, "error": "Choose 'morning' or 'evening'."}
+
+    available = available_sessions(doctor_name, date_str)
+    if not available.get("ok"):
+        return {"ok": False, "error": available.get("error", "Not available.")}
+    if session.key not in {s["key"] for s in available["sessions"]}:
+        return {"ok": False, "error":
+                f"There is no {session.label.lower()} that day. Offer one of the sittings that runs."}
 
     mobile_digits = normalise_mobile(mobile)
     if len(mobile_digits) != 10:
         return {"ok": False, "error": "Need a valid 10-digit mobile number."}
 
-    slot_label = slot_time.strftime("%H:%M")
-    # Serialize per-doctor so two concurrent bookings can't take the same slot,
-    # and only accept a slot that available_slots would actually offer (future,
-    # within OPD hours, not already taken).
+    note = f"Booked by {source} · {session.label}"
+    if reason:
+        note = f"{note} · {reason}"
     with transaction.atomic():
-        DoctorProfile.objects.select_for_update().get(pk=doctor.pk)
-        avail = available_slots(doctor_name, date_str, limit=10000)
-        if not avail.get("ok") or slot_label not in avail["slots"]:
-            return {"ok": False, "error": "That time is not available. Offer one of the free slots."}
         patient = get_or_create_patient(patient_name, mobile_digits)
-        note = f"Booked by {source}"
-        if reason:
-            note = f"{note} · {reason}"[:240]
         appointment = Appointment.objects.create(
-            patient=patient,
-            doctor=doctor,
-            date=on_date,
-            slot_time=slot_time,
-            duration_minutes=settings.OPD_DEFAULT_SLOT_MINUTES,
-            notes=note,
+            patient=patient, doctor=doctor, date=on_date,
+            slot_time=session.start, duration_minutes=session.duration_minutes,
+            notes=note[:240],
         )
-    queue_confirmation(appointment)
-    # Keep every value JSON-serialisable: this dict is handed straight to
-    # json.dumps() as a tool_result for the phone agent.
+    queue_confirmation(appointment, session)
     return {
         "ok": True,
         "appointment_id": str(appointment.id),
         "patient_id": str(patient.id),
-        "confirmation": (
-            f"Booked for {patient.full_name} with {doctor.display_name} on "
-            f"{on_date:%d %b} at {slot_time:%H:%M}."
-        ),
+        "session": session.as_dict(),
+        "confirmation": (f"Booked for {patient.full_name} with {doctor.display_name} on "
+                         f"{on_date:%d %b}, {session.label.lower()} ({session.human()}). "
+                         "Come any time during the sitting."),
     }
 
 
-def queue_confirmation(appointment):
-    """Best-effort confirmation message. A messaging outage must never lose an
+def queue_confirmation(appointment, session):
+    """Best-effort confirmation. A messaging outage must never lose an
     appointment the patient believes is booked, so failures are swallowed."""
     try:
         from apps.comms import services as comms_services
@@ -269,11 +255,9 @@ def queue_confirmation(appointment):
             patient=appointment.patient,
             channel=settings.OPD_REMINDER_CHANNEL,
             to_number=appointment.patient.mobile,
-            body=(
-                f"{hospital.name}: appointment confirmed with "
-                f"{appointment.doctor.display_name} on {appointment.date:%d-%b-%Y} at "
-                f"{appointment.slot_time:%H:%M}."
-            ),
+            body=(f"{hospital.name}: appointment confirmed with "
+                  f"{appointment.doctor.display_name} on {appointment.date:%d-%b-%Y}, "
+                  f"{session.label.lower()} {session.human()}. Come any time during the sitting."),
             purpose=OutboundMessage.Purpose.APPOINTMENT,
             reference=f"appt:{appointment.id}",
             scheduled_for=appointment.date,

@@ -57,12 +57,12 @@ def contact(request):
     return render(request, "site/contact.html", _base_context())
 
 
-def _slot_options(doctor, on_date):
-    """Free times for this doctor/date, or [] if either is missing or invalid."""
+def _session_options(doctor, on_date):
+    """Sittings that run for this doctor/date, or [] if either is missing."""
     if doctor is None or on_date is None:
         return []
-    result = booking.available_slots(doctor.display_name, on_date.isoformat(), limit=200)
-    return result["slots"] if result.get("ok") else []
+    result = booking.available_sessions(doctor.display_name, on_date.isoformat())
+    return result["sessions"] if result.get("ok") else []
 
 
 def _selected(request, data):
@@ -88,20 +88,20 @@ def book(request):
 
     if request.method == "GET":
         doctor, on_date = _selected(request, request.GET)
-        slots = _slot_options(doctor, on_date)
+        sessions = _session_options(doctor, on_date)
         form = AppointmentBookingForm(
             initial={"doctor": doctor.pk if doctor else None,
                      "date": on_date.isoformat() if on_date else ""},
-            slot_choices=slots,
+            session_choices=sessions,
         )
         return render(request, "site/book.html", {
-            **_base_context(), "form": form, "slots": slots,
+            **_base_context(), "form": form, "sessions": sessions,
             "picked": bool(doctor and on_date), **limits,
         })
 
     doctor, on_date = _selected(request, request.POST)
-    slots = _slot_options(doctor, on_date)
-    form = AppointmentBookingForm(request.POST, slot_choices=slots)
+    sessions = _session_options(doctor, on_date)
+    form = AppointmentBookingForm(request.POST, session_choices=sessions)
 
     # Honeypot first: never spend a DB write or a slot lookup on an obvious bot,
     # and never tell it why it failed.
@@ -116,7 +116,7 @@ def book(request):
         throttle.record(request, PublicBookingAttempt.Outcome.RATE_LIMITED, mobile, reason)
         messages.error(request, message)
         return render(request, "site/book.html", {
-            **_base_context(), "form": form, "slots": slots, "picked": True, **limits,
+            **_base_context(), "form": form, "sessions": sessions, "picked": True, **limits,
         })
 
     if not form.is_valid():
@@ -124,36 +124,38 @@ def book(request):
             request, PublicBookingAttempt.Outcome.REJECTED, mobile, "form invalid"
         )
         return render(request, "site/book.html", {
-            **_base_context(), "form": form, "slots": slots,
+            **_base_context(), "form": form, "sessions": sessions,
             "picked": bool(doctor and on_date), **limits,
         })
 
     data = form.cleaned_data
     result = booking.book_appointment(
         data["full_name"], data["mobile"], data["doctor"].display_name,
-        data["date"].isoformat(), data["slot_time"],
+        data["date"].isoformat(), data["session"],
         source="website", reason=data.get("reason", ""),
     )
     if not result.get("ok"):
         throttle.record(
             request, PublicBookingAttempt.Outcome.REJECTED, mobile, result.get("error", "")
         )
-        messages.error(request, _(
-            "That time was just taken. Please pick another one."
+        messages.error(request, result.get("error") or _(
+            "We could not complete that booking. Please try another day."
         ))
         return render(request, "site/book.html", {
             **_base_context(), "form": form,
-            "slots": _slot_options(doctor, on_date), "picked": True, **limits,
+            "sessions": _session_options(doctor, on_date), "picked": True, **limits,
         })
 
     throttle.record(request, PublicBookingAttempt.Outcome.BOOKED, mobile)
     # Confirmation goes through the session, not the URL: a UUID in the address
     # bar would be a shareable link to someone's appointment details.
+    sitting = result.get("session", {})
     request.session[CONFIRMATION_SESSION_KEY] = {
         "name": data["full_name"],
         "doctor": data["doctor"].display_name,
         "date": data["date"].isoformat(),
-        "time": data["slot_time"],
+        "sitting": sitting.get("label", ""),
+        "time": sitting.get("time", ""),
         "fee": str(data["doctor"].consult_fee),
     }
     return redirect("site:book_done")

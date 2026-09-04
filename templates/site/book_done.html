@@ -13,11 +13,11 @@
         <dt>{% trans "Patient" %}</dt><dd>{{ confirmation.name }}</dd>
         <dt>{% trans "Doctor" %}</dt><dd>{{ confirmation.doctor }}</dd>
         <dt>{% trans "Date" %}</dt><dd>{{ confirmation.date }}</dd>
-        <dt>{% trans "Time" %}</dt><dd>{{ confirmation.time }}</dd>
+        <dt>{% trans "Sitting" %}</dt><dd>{{ confirmation.sitting }} · {{ confirmation.time }}</dd>
         {% if confirmation.fee %}<dt>{% trans "Consultation fee" %}</dt><dd>₹{{ confirmation.fee }}</dd>{% endif %}
       </dl>
       <p class="prose">
-        {% trans "Please arrive about 10 minutes early and report at the reception desk. Bring any previous prescriptions or reports." %}
+        {% trans "Come any time during the sitting and report at the reception desk — you will be given a token and seen in turn. Bring any previous prescriptions or reports." %}
       </p>
       {% if hospital.phone %}
         <p class="prose">

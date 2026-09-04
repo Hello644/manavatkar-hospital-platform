@@ -19,6 +19,18 @@ from .models import CallSession
 User = get_user_model()
 
 
+def next_full_opd_day():
+    """Next date running BOTH sittings. Tests must not depend on what day they
+    are run — evening OPD is closed Tuesday and Saturday, so a bare
+    "tomorrow" silently breaks the suite twice a week."""
+    from apps.opd.booking import EVENING_CLOSED
+
+    d = timezone.localdate() + timedelta(days=1)
+    while d.weekday() in EVENING_CLOSED:
+        d += timedelta(days=1)
+    return d
+
+
 def make_doctor(name="Dr. Madhu Manavatkar", specialty="Gynecology"):
     user = User.objects.create_user(username=name.split()[-1].lower(), password="x")
     return DoctorProfile.objects.create(
@@ -30,21 +42,16 @@ def make_doctor(name="Dr. Madhu Manavatkar", specialty="Gynecology"):
 class BookingToolTests(TestCase):
     def setUp(self):
         self.doctor = make_doctor()
-        self.tomorrow = (timezone.localdate() + timedelta(days=1)).isoformat()
+        self.tomorrow = next_full_opd_day().isoformat()
 
-    def test_available_slots_excludes_booked_and_offers_future(self):
-        Patient.objects.create(full_name="A", mobile="9999999999", privacy_notice_deferred=True)
-        Appointment.objects.create(
-            patient=Patient.objects.first(), doctor=self.doctor,
-            date=timezone.localdate() + timedelta(days=1), slot_time="10:00",
-        )
-        result = tools.available_slots("Madhu", self.tomorrow)
+    def test_available_sessions_lists_the_sittings_that_run(self):
+        result = tools.available_sessions("Madhu", self.tomorrow)
         self.assertTrue(result["ok"])
-        self.assertNotIn("10:00", result["slots"])
-        self.assertIn("10:10", result["slots"])
+        self.assertEqual([s["key"] for s in result["sessions"]], ["morning", "evening"])
+        self.assertEqual(result["sessions"][0]["time"], "10:00–15:00")
 
     def test_book_creates_provisional_patient_and_appointment(self):
-        result = tools.book_appointment("Ravi Kumar", "9876543210", "gynec", self.tomorrow, "11:00")
+        result = tools.book_appointment("Ravi Kumar", "9876543210", "gynec", self.tomorrow, "morning")
         self.assertTrue(result["ok"], result)
         appt = Appointment.objects.get()
         self.assertEqual(appt.doctor, self.doctor)
@@ -56,17 +63,19 @@ class BookingToolTests(TestCase):
             full_name="Sita", mobile="9876543210", sex="F",
             age_years_at_registration=30, privacy_notice_accepted=True,
         )
-        tools.book_appointment("Sita", "9876543210", "Madhu", self.tomorrow, "11:30")
+        tools.book_appointment("Sita", "9876543210", "Madhu", self.tomorrow, "evening")
         self.assertEqual(Patient.objects.filter(mobile="9876543210").count(), 1)
         self.assertEqual(Appointment.objects.get().patient, existing)
 
-    def test_book_rejects_clash(self):
-        tools.book_appointment("A", "9876543210", "Madhu", self.tomorrow, "12:00")
-        result = tools.book_appointment("B", "9812345678", "Madhu", self.tomorrow, "12:00")
-        self.assertFalse(result["ok"])
+    def test_second_booking_in_the_same_sitting_is_allowed(self):
+        """No numbered slots: the sitting has unlimited capacity."""
+        tools.book_appointment("Anil", "9876543210", "Madhu", self.tomorrow, "morning")
+        result = tools.book_appointment("Bhaskar", "9812345678", "Madhu", self.tomorrow, "morning")
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(Appointment.objects.count(), 2)
 
     def test_book_rejects_bad_mobile(self):
-        result = tools.book_appointment("A", "123", "Madhu", self.tomorrow, "12:00")
+        result = tools.book_appointment("Anil", "123", "Madhu", self.tomorrow, "morning")
         self.assertFalse(result["ok"])
 
     def test_book_rejects_off_grid_and_lunch_times(self):
@@ -75,13 +84,13 @@ class BookingToolTests(TestCase):
         self.assertFalse(tools.book_appointment("A", "9876543210", "Madhu", self.tomorrow, "14:00")["ok"])
 
     def test_provisional_patient_is_valid_and_flagged(self):
-        tools.book_appointment("Ravi", "9876500000", "Madhu", self.tomorrow, "11:00")
+        tools.book_appointment("Ravi", "9876500000", "Madhu", self.tomorrow, "morning")
         patient = Patient.objects.get(mobile="9876500000")
         self.assertEqual(patient.sex, Patient.Sex.OTHER)
         self.assertTrue(patient.is_unknown)
 
     def test_book_handles_missing_name(self):
-        result = tools.book_appointment(None, "9876500011", "Madhu", self.tomorrow, "11:30")
+        result = tools.book_appointment(None, "9876500011", "Madhu", self.tomorrow, "morning")
         self.assertTrue(result["ok"], result)
         self.assertEqual(Patient.objects.get(mobile="9876500011").full_name, "Phone booking")
 
@@ -115,14 +124,14 @@ class AgentLoopTests(TestCase):
     def setUp(self):
         self.doctor = make_doctor()
         self.session = CallSession.objects.create(call_sid="CA1", from_number="+919876543210")
-        self.tomorrow = (timezone.localdate() + timedelta(days=1)).isoformat()
+        self.tomorrow = next_full_opd_day().isoformat()
 
     def test_loop_books_and_ends(self):
         script = [
             SimpleNamespace(stop_reason="tool_use", content=[
                 _tool("t1", "book_appointment", {
                     "patient_name": "Ravi", "mobile": "9876543210",
-                    "doctor_name": "Madhu", "date_str": self.tomorrow, "time_str": "11:00",
+                    "doctor_name": "Madhu", "date_str": self.tomorrow, "session_key": "morning",
                 }),
             ]),
             SimpleNamespace(stop_reason="tool_use", content=[

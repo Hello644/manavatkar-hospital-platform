@@ -28,6 +28,18 @@ AS_DEPLOYED = override_settings(
 )
 
 
+def next_full_opd_day():
+    """Next date running BOTH sittings. Tests must not depend on what day they
+    are run — evening OPD is closed Tuesday and Saturday, so a bare
+    "tomorrow" silently breaks the suite twice a week."""
+    from apps.opd.booking import EVENING_CLOSED
+
+    d = timezone.localdate() + timedelta(days=1)
+    while d.weekday() in EVENING_CLOSED:
+        d += timedelta(days=1)
+    return d
+
+
 def make_doctor(name="Dr. Madhu Manwatkar", specialty="Gynecology", public=True, online=True):
     user = User.objects.create_user(username=name.split()[-1].lower() + specialty[:3].lower(),
                                     password="x")
@@ -81,7 +93,7 @@ class PublicPageTests(TestCase):
 class BookingFlowTests(TestCase):
     def setUp(self):
         self.doctor = make_doctor()
-        self.tomorrow = timezone.localdate() + timedelta(days=1)
+        self.tomorrow = next_full_opd_day()
 
     def _slots(self):
         resp = self.client.get(
@@ -89,16 +101,16 @@ class BookingFlowTests(TestCase):
         )
         return resp
 
-    def test_picking_a_doctor_and_date_shows_free_times(self):
+    def test_picking_a_doctor_and_date_shows_the_sittings(self):
         resp = self._slots()
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "10:00")
-        self.assertContains(resp, "17:00")
+        self.assertContains(resp, "Morning OPD")
+        self.assertContains(resp, "10:00–15:00")
 
     def test_booking_creates_appointment_and_provisional_patient(self):
         resp = self.client.post(reverse("site:book"), {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "11:00", "full_name": "Ravi Kumar",
+            "session": "morning", "full_name": "Ravi Kumar",
             "mobile": "9876543210", "reason": "fever", "website": "",
         }, follow=True)
         self.assertEqual(resp.status_code, 200)
@@ -116,39 +128,40 @@ class BookingFlowTests(TestCase):
     def test_confirmation_is_not_replayable(self):
         self.client.post(reverse("site:book"), {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "11:00", "full_name": "Ravi Kumar", "mobile": "9876543210",
+            "session": "morning", "full_name": "Ravi Kumar", "mobile": "9876543210",
         })
         # First view consumes it; a refresh must not re-print the details.
         self.client.get(reverse("site:book_done"))
         resp = self.client.get(reverse("site:book_done"))
         self.assertNotContains(resp, "Ravi Kumar")
 
-    def test_slot_outside_opd_hours_is_refused(self):
+    def test_unknown_sitting_is_refused(self):
         resp = self.client.post(reverse("site:book"), {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "14:00", "full_name": "Ravi", "mobile": "9876543210",
+            "session": "afternoon", "full_name": "Ravi", "mobile": "9876543210",
         })
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(Appointment.objects.count(), 0)
 
-    def test_already_taken_slot_is_refused(self):
+    def test_a_busy_sitting_never_blocks_a_new_booking(self):
+        """Unlimited capacity — a full morning must still accept one more."""
         patient = Patient.objects.create(
             full_name="A", mobile="9000000000", privacy_notice_deferred=True
         )
         Appointment.objects.create(
-            patient=patient, doctor=self.doctor, date=self.tomorrow, slot_time="11:00"
+            patient=patient, doctor=self.doctor, date=self.tomorrow, slot_time="10:00"
         )
         self.client.post(reverse("site:book"), {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "11:00", "full_name": "B", "mobile": "9876543210",
+            "session": "morning", "full_name": "Bhaskar", "mobile": "9876543210",
         })
-        self.assertEqual(Appointment.objects.count(), 1)
+        self.assertEqual(Appointment.objects.count(), 2)
 
     def test_doctor_not_opted_into_online_booking_cannot_be_booked(self):
         offline = make_doctor("Dr. Offline Only", "ENT", public=True, online=False)
         self.client.post(reverse("site:book"), {
             "doctor": offline.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "11:00", "full_name": "B", "mobile": "9876543210",
+            "session": "morning", "full_name": "Bhaskar", "mobile": "9876543210",
         })
         self.assertEqual(Appointment.objects.count(), 0)
 
@@ -161,7 +174,7 @@ class BookingFlowTests(TestCase):
         )
         self.client.post(reverse("site:book"), {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "11:30", "full_name": "Sunita Patil", "mobile": "9822011223",
+            "session": "morning", "full_name": "Sunita Patil", "mobile": "9822011223",
         })
         appointment = Appointment.objects.get()
         self.assertNotEqual(appointment.patient, husband)
@@ -175,7 +188,7 @@ class BookingFlowTests(TestCase):
         )
         self.client.post(reverse("site:book"), {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "11:30", "full_name": "Sunita Patil", "mobile": "9822011223",
+            "session": "morning", "full_name": "Sunita Patil", "mobile": "9822011223",
         })
         self.assertEqual(Appointment.objects.get().patient, existing)
         self.assertEqual(Patient.objects.filter(mobile="9822011223").count(), 1)
@@ -187,23 +200,23 @@ class BookingFlowTests(TestCase):
         )
         self.client.post(reverse("site:book"), {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "12:00", "full_name": "sunita", "mobile": "9822011223",
+            "session": "evening", "full_name": "sunita", "mobile": "9822011223",
         })
         self.assertEqual(Appointment.objects.get().patient, existing)
 
     def test_bad_mobile_is_rejected(self):
         resp = self.client.post(reverse("site:book"), {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "11:00", "full_name": "B", "mobile": "12345",
+            "session": "morning", "full_name": "B", "mobile": "12345",
         })
         self.assertEqual(Appointment.objects.count(), 0)
         self.assertContains(resp, "valid 10-digit")
 
 
 class OpdCalendarTests(TestCase):
-    """PLAN.md: "OPD closed Tuesday evenings". Selling a slot the hospital does
-    not run sends a patient to a dark building, so the self-service grid has to
-    know the calendar."""
+    """The OPD runs two sittings, and evening OPD does not run on Tuesday or
+    Saturday. Selling a sitting the hospital does not hold sends a patient to a
+    dark building, so the self-service path has to know the calendar."""
 
     def setUp(self):
         self.doctor = make_doctor()
@@ -214,51 +227,79 @@ class OpdCalendarTests(TestCase):
             d += timedelta(days=1)
         return d
 
-    def _slots(self, on_date):
+    def _keys(self, on_date):
         from apps.opd import booking
 
-        result = booking.available_slots(self.doctor.display_name, on_date.isoformat(), limit=500)
-        return result["slots"] if result.get("ok") else []
+        r = booking.available_sessions(self.doctor.display_name, on_date.isoformat())
+        return [s["key"] for s in r["sessions"]] if r.get("ok") else []
 
-    def test_tuesday_offers_morning_but_no_evening(self):
-        slots = self._slots(self._next(1))
-        self.assertIn("10:00", slots)
-        self.assertTrue(all(s < "13:00" for s in slots), f"evening slot offered on Tuesday: {slots}")
+    def test_normal_day_runs_both_sittings(self):
+        self.assertEqual(self._keys(self._next(2)), ["morning", "evening"])  # Wednesday
 
-    def test_weekday_offers_both_sessions(self):
-        slots = self._slots(self._next(2))  # Wednesday
-        self.assertIn("10:00", slots)
-        self.assertIn("17:00", slots)
+    def test_sunday_runs_both_sittings(self):
+        self.assertEqual(self._keys(self._next(6)), ["morning", "evening"])
 
-    def test_sunday_opd_runs(self):
-        """The hospital confirmed Sunday OPD is open."""
-        slots = self._slots(self._next(6))
-        self.assertIn("10:00", slots)
-        self.assertIn("17:00", slots)
+    def test_tuesday_has_no_evening(self):
+        self.assertEqual(self._keys(self._next(1)), ["morning"])
 
-    @override_settings(OPD_SUNDAY_OPEN=False)
-    def test_sunday_can_be_closed_by_configuration(self):
-        self.assertEqual(self._slots(self._next(6)), [])
+    def test_saturday_has_no_evening(self):
+        self.assertEqual(self._keys(self._next(5)), ["morning"])
 
-    def test_booking_a_tuesday_evening_is_refused(self):
-        tuesday = self._next(1)
-        resp = self.client.post(reverse("site:book"), {
-            "doctor": self.doctor.pk, "date": tuesday.isoformat(),
-            "slot_time": "18:00", "full_name": "Ravi", "mobile": "9876543210",
-        })
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(Appointment.objects.count(), 0)
+    def test_booking_a_closed_evening_is_refused(self):
+        for weekday in (1, 5):  # Tuesday, Saturday
+            Appointment.objects.all().delete()
+            resp = self.client.post(reverse("site:book"), {
+                "doctor": self.doctor.pk, "date": self._next(weekday).isoformat(),
+                "session": "evening", "full_name": "Ravi", "mobile": "9876543210",
+            })
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(Appointment.objects.count(), 0, f"weekday {weekday} sold an evening")
+
+    def test_sittings_have_the_right_hours(self):
+        from apps.opd import booking
+
+        self.assertEqual(booking.MORNING.human(), "10:00–15:00")
+        self.assertEqual(booking.EVENING.human(), "18:00–22:00")
+
+
+class UnlimitedCapacityTests(TestCase):
+    """No numbered slots and no cap: the OPD is walk-in within a sitting."""
+
+    def setUp(self):
+        self.doctor = make_doctor()
+        self.tomorrow = next_full_opd_day()
+
+    def test_many_patients_can_book_the_same_sitting(self):
+        from apps.opd import booking
+
+        for i in range(25):
+            r = booking.book_appointment(
+                f"Patient {i}", f"98765{i:05d}", self.doctor.display_name,
+                self.tomorrow.isoformat(), "morning", source="website",
+            )
+            self.assertTrue(r.get("ok"), r)
+        self.assertEqual(Appointment.objects.count(), 25)
+
+    def test_booking_records_the_sitting_window(self):
+        from apps.opd import booking
+
+        booking.book_appointment("A", "9876543210", self.doctor.display_name,
+                                 self.tomorrow.isoformat(), "evening", source="website")
+        appt = Appointment.objects.get()
+        self.assertEqual(appt.slot_time.strftime("%H:%M"), "18:00")
+        self.assertEqual(appt.duration_minutes, 240)
+        self.assertIn("Evening OPD", appt.notes)
 
 
 class BookingAbuseTests(TestCase):
     def setUp(self):
         self.doctor = make_doctor()
-        self.tomorrow = timezone.localdate() + timedelta(days=1)
+        self.tomorrow = next_full_opd_day()
 
-    def _post(self, mobile="9876543210", slot="11:00", **extra):
+    def _post(self, mobile="9876543210", session="morning", **extra):
         payload = {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": slot, "full_name": "Ravi", "mobile": mobile,
+            "session": session, "full_name": "Ravi", "mobile": mobile,
         }
         payload.update(extra)
         return self.client.post(reverse("site:book"), payload)
@@ -470,12 +511,12 @@ class BookingOracleTests(TestCase):
 
     def setUp(self):
         self.doctor = make_doctor()
-        self.tomorrow = timezone.localdate() + timedelta(days=1)
+        self.tomorrow = next_full_opd_day()
 
     def _post(self, mobile):
         return self.client.post(reverse("site:book"), {
             "doctor": self.doctor.pk, "date": self.tomorrow.isoformat(),
-            "slot_time": "11:00", "full_name": "Ravi", "mobile": mobile,
+            "session": "morning", "full_name": "Ravi", "mobile": mobile,
         })
 
     def test_known_and_unknown_numbers_get_the_same_refusal(self):
