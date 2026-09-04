@@ -41,7 +41,7 @@ class HospitalProfile(models.Model):
     public_email = models.EmailField(blank=True)
     opd_hours_text = models.CharField(
         max_length=240, blank=True,
-        default="Mon–Sat 10:00–13:00 and 17:00–20:00 · Tuesday evening closed",
+        default="Open daily 10:00–13:00 and 17:00–20:00 · Tuesday evening closed",
         help_text="Human-readable OPD timings for the website and footer.",
     )
     city = models.CharField(max_length=80, blank=True, default="Bhusawal")
@@ -90,5 +90,12 @@ class HospitalProfile(models.Model):
 
     @property
     def full_address(self):
-        parts = [self.address_line, self.city, self.state, self.pincode]
+        """Address line + city/state/pin, skipping any part the address line
+        already names. The street address here ends in "Bhusawal", so naively
+        appending the city rendered "…, Bhusawal, Bhusawal, Maharashtra"."""
+        parts, seen = [self.address_line], (self.address_line or "").lower()
+        for part in (self.city, self.state, self.pincode):
+            if part and part.lower() not in seen:
+                parts.append(part)
+                seen += " " + part.lower()
         return ", ".join(p for p in parts if p)

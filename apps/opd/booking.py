@@ -28,9 +28,9 @@ WORKING_WINDOWS = [MORNING, EVENING]
 # is 1. Without this the website would sell Tuesday-evening slots and patients
 # would arrive at a closed OPD.
 TUESDAY = 1
-# Sunday closure is an ASSUMPTION, not something PLAN.md states — it is the norm
-# for an Indian OPD, but confirm it with the hospital. Set OPD_SUNDAY_OPEN=1 to
-# run a normal Sunday OPD.
+# The hospital confirmed Sunday OPD runs, so OPD_SUNDAY_OPEN defaults on and
+# Sunday gets the normal weekday windows. Kept as a switch so a future closure
+# needs a config change, not a deploy.
 SUNDAY = 6
 
 

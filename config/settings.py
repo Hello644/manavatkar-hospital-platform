@@ -178,9 +178,10 @@ HOSPITAL_PRIVACY_NOTICE_VERSION = os.environ.get(
 
 OPD_DEFAULT_SLOT_MINUTES = int(os.environ.get("OPD_DEFAULT_SLOT_MINUTES", "10"))
 # Self-service (website + phone agent) slot grid honours the OPD calendar:
-# PLAN.md records "OPD closed Tuesday evenings". Sunday closure is the common
-# default but is NOT in the plan — flip this on if the hospital runs Sunday OPD.
-OPD_SUNDAY_OPEN = env_bool("OPD_SUNDAY_OPEN", default=False)
+# PLAN.md records "OPD closed Tuesday evenings", and the hospital has confirmed
+# Sunday OPD does run. Sunday currently uses the same windows as a weekday; if
+# Sunday hours differ, give it its own entry in apps.opd.booking.windows_for.
+OPD_SUNDAY_OPEN = env_bool("OPD_SUNDAY_OPEN", default=True)
 OPD_SLOT_CAPACITY = int(os.environ.get("OPD_SLOT_CAPACITY", "1"))
 
 # Thermal token printer (ESC/POS over RAW/JetDirect port 9100). When a host is

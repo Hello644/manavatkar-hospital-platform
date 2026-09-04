@@ -230,12 +230,15 @@ class OpdCalendarTests(TestCase):
         self.assertIn("10:00", slots)
         self.assertIn("17:00", slots)
 
-    def test_sunday_is_closed_by_default(self):
-        self.assertEqual(self._slots(self._next(6)), [])
+    def test_sunday_opd_runs(self):
+        """The hospital confirmed Sunday OPD is open."""
+        slots = self._slots(self._next(6))
+        self.assertIn("10:00", slots)
+        self.assertIn("17:00", slots)
 
-    @override_settings(OPD_SUNDAY_OPEN=True)
-    def test_sunday_can_be_opened_by_configuration(self):
-        self.assertIn("10:00", self._slots(self._next(6)))
+    @override_settings(OPD_SUNDAY_OPEN=False)
+    def test_sunday_can_be_closed_by_configuration(self):
+        self.assertEqual(self._slots(self._next(6)), [])
 
     def test_booking_a_tuesday_evening_is_refused(self):
         tuesday = self._next(1)
