@@ -1,33 +1,37 @@
 {% extends "site/base.html" %}
 {% load i18n %}
-
-{% block title %}{% trans "Our doctors" %} · {{ hospital.name }}{% endblock %}
-
+{% block title %}{% trans "Doctors" %} · {{ hospital.name }}{% endblock %}
 {% block content %}
-<section class="wrap section">
-  <h1>{% trans "Our doctors" %}</h1>
-  {% if doctors %}
-    <div class="cards">
-      {% for doctor in doctors %}
-        <article class="card doctor-card">
-          <span class="avatar" aria-hidden="true">{{ doctor.display_name|slice:":1" }}</span>
-          <h2>{{ doctor.display_name }}</h2>
-          {% if doctor.qualifications %}<p class="quals">{{ doctor.qualifications }}</p>{% endif %}
-          {% if doctor.specialty %}<p class="specialty">{{ doctor.specialty }}</p>{% endif %}
-          {% if doctor.public_bio %}<p>{{ doctor.public_bio|linebreaksbr }}</p>{% endif %}
-          {% if doctor.accepts_online_booking %}
-            <a class="btn btn-primary btn-small"
-               href="{% url 'site:book' %}?doctor={{ doctor.pk }}">{% trans "Book" %}</a>
-          {% elif hospital.phone %}
-            <a class="btn btn-ghost btn-small" href="tel:{{ hospital.phone }}">{% trans "Call to book" %}</a>
-          {% endif %}
-        </article>
-      {% endfor %}
+<section class="band">
+  <div class="wrap">
+    <p class="rail">{% trans "Doctors" %}<small>{% trans "डॉक्टर" %}</small></p>
+    <div class="col">
+      {% if doctors %}
+        {% for doctor in doctors %}
+          <article class="prescriber">
+            <h3>{{ doctor.display_name }}</h3>
+            {% if doctor.qualifications %}<p class="degrees">{{ doctor.qualifications }}</p>{% endif %}
+            <p class="reg">
+              {% if doctor.specialty %}{{ doctor.specialty }}{% endif %}
+              {% if doctor.registration_number %} · {% trans "Maharashtra Medical Council Reg." %} {{ doctor.registration_number }}{% endif %}
+            </p>
+            {% if doctor.public_bio %}<p class="bio">{{ doctor.public_bio|linebreaksbr }}</p>{% endif %}
+            {% if doctor.consult_fee %}<p class="fee">{% trans "Consultation" %} ₹{{ doctor.consult_fee|floatformat:"0" }}</p>{% endif %}
+            <div class="actions">
+              {% if doctor.accepts_online_booking %}
+                <a class="btn btn-solid" href="{% url 'site:book' %}?doctor={{ doctor.pk }}">{% trans "Book a sitting" %}</a>
+              {% elif hospital.phone %}
+                <a class="btn btn-line" href="tel:{{ hospital.phone }}">{% trans "Call to book" %}</a>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <p class="empty">
+          {% blocktrans with phone=hospital.phone %}Doctor listings are being updated. Call {{ phone }} for consultation timings.{% endblocktrans %}
+        </p>
+      {% endif %}
     </div>
-  {% else %}
-    <p class="prose">
-      {% blocktrans with phone=hospital.phone %}Doctor profiles are being updated. Please call {{ phone }} for consultation timings.{% endblocktrans %}
-    </p>
-  {% endif %}
+  </div>
 </section>
 {% endblock %}

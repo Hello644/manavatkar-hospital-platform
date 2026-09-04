@@ -36,25 +36,31 @@ def _base_context():
         "services": Service.objects.filter(is_active=True),
         "announcements": Announcement.live(),
         "doctors": _public_doctors(),
+        # Generated from the booking engine, never hand-written: the board and
+        # the bookable calendar are the same data.
+        "timetable": booking.weekly_timetable(),
+        "morning": booking.MORNING,
+        "evening": booking.EVENING,
     }
 
 
 def home(request):
     ctx = _base_context()
     ctx["booking_open"] = _public_doctors().filter(accepts_online_booking=True).exists()
+    ctx["page"] = "home"
     return render(request, "site/home.html", ctx)
 
 
 def doctors(request):
-    return render(request, "site/doctors.html", _base_context())
+    return render(request, "site/doctors.html", {**_base_context(), "page": "doctors"})
 
 
 def services(request):
-    return render(request, "site/services.html", _base_context())
+    return render(request, "site/services.html", {**_base_context(), "page": "services"})
 
 
 def contact(request):
-    return render(request, "site/contact.html", _base_context())
+    return render(request, "site/contact.html", {**_base_context(), "page": "contact"})
 
 
 def _session_options(doctor, on_date):
@@ -95,7 +101,7 @@ def book(request):
             session_choices=sessions,
         )
         return render(request, "site/book.html", {
-            **_base_context(), "form": form, "sessions": sessions,
+            **_base_context(), "page": "book", "form": form, "sessions": sessions,
             "picked": bool(doctor and on_date), **limits,
         })
 
@@ -116,7 +122,7 @@ def book(request):
         throttle.record(request, PublicBookingAttempt.Outcome.RATE_LIMITED, mobile, reason)
         messages.error(request, message)
         return render(request, "site/book.html", {
-            **_base_context(), "form": form, "sessions": sessions, "picked": True, **limits,
+            **_base_context(), "page": "book", "form": form, "sessions": sessions, "picked": True, **limits,
         })
 
     if not form.is_valid():
@@ -124,7 +130,7 @@ def book(request):
             request, PublicBookingAttempt.Outcome.REJECTED, mobile, "form invalid"
         )
         return render(request, "site/book.html", {
-            **_base_context(), "form": form, "sessions": sessions,
+            **_base_context(), "page": "book", "form": form, "sessions": sessions,
             "picked": bool(doctor and on_date), **limits,
         })
 
@@ -142,7 +148,7 @@ def book(request):
             "We could not complete that booking. Please try another day."
         ))
         return render(request, "site/book.html", {
-            **_base_context(), "form": form,
+            **_base_context(), "page": "book", "form": form,
             "sessions": _session_options(doctor, on_date), "picked": True, **limits,
         })
 

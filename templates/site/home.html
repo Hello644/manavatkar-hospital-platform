@@ -2,99 +2,100 @@
 {% load i18n %}
 
 {% block content %}
-<section class="hero">
-  <div class="aurora" aria-hidden="true"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+<section class="band">
   <div class="wrap">
-    <span class="eyebrow">{% if hospital.city %}{{ hospital.city }} · {{ hospital.state }}{% else %}{% trans "Maharashtra" %}{% endif %}</span>
-    <h1>{{ hospital.name }}</h1>
-    {% if hospital.name_marathi %}<p class="hero-mr">{{ hospital.name_marathi }}</p>{% endif %}
-    {% if hospital.tagline %}<p class="hero-tagline">{{ hospital.tagline }}</p>{% endif %}
-    <div class="hero-actions">
-      {% if booking_open %}
-        <a class="btn btn-primary" href="{% url 'site:book' %}">{% trans "Book an appointment" %} →</a>
-      {% endif %}
-      {% if hospital.phone %}
-        <a class="btn btn-ghost" href="tel:{{ hospital.phone }}">{% trans "Call" %} {{ hospital.phone }}</a>
-      {% endif %}
+    <p class="rail">{% trans "When to come" %}<small>{% trans "कधी यावे" %}</small></p>
+    <div class="col">
+      <p class="lede">
+        {% blocktrans %}General medicine OPD runs twice a day. Casualty stays open through the night.{% endblocktrans %}
+      </p>
+      {% include "site/_board.html" %}
+      <div class="actions">
+        {% if booking_open %}
+          <a class="btn btn-solid" href="{% url 'site:book' %}">{% trans "Book a sitting" %}</a>
+        {% endif %}
+        {% if hospital.phone %}
+          <a class="btn btn-line" href="tel:{{ hospital.phone }}">{% trans "Call reception" %}</a>
+        {% endif %}
+      </div>
     </div>
   </div>
 </section>
 
-{% comment %} Hours as a moving strip — the single fact patients ask for most. {% endcomment %}
-<div class="ticker" aria-label="{% trans 'Opening hours' %}">
-  <div class="ticker-track" aria-hidden="true">
-    {% for i in "12" %}
-      <span>{% trans "OPD" %} <b>{% trans "10:00–15:00" %}</b></span>
-      <span>{% trans "OPD" %} <b>{% trans "18:00–22:00" %}</b></span>
-      <span>{% trans "Emergency" %} <b>{% trans "24 hours" %}</b></span>
-      <span>{% trans "Tuesday + Saturday evening" %} <b>{% trans "closed" %}</b></span>
-      <span>{% trans "No appointment number — walk in during the sitting" %}</span>
-    {% endfor %}
-  </div>
-</div>
-
 {% if announcements %}
-  <section class="wrap section reveal">
-    <div class="notices">
-      {% for note in announcements %}
-        <article class="notice">
-          <h2>{{ note.title }}</h2>
-          {% if note.body %}<p>{{ note.body|linebreaksbr }}</p>{% endif %}
-        </article>
-      {% endfor %}
+  <section class="band">
+    <div class="wrap">
+      <p class="rail">{% trans "Notices" %}<small>{% trans "सूचना" %}</small></p>
+      <div class="col">
+        {% for note in announcements %}
+          <article class="notice">
+            <h3>{{ note.title }}</h3>
+            {% if note.body %}<p>{{ note.body|linebreaksbr }}</p>{% endif %}
+          </article>
+        {% endfor %}
+      </div>
     </div>
   </section>
 {% endif %}
 
 {% if hospital.about_text %}
-  <section class="wrap section reveal">
-    <div class="sec-head"><span class="sec-num">01</span><h2 class="big">{% trans "About" %}</h2></div>
-    <p class="prose">{{ hospital.about_text|linebreaksbr }}</p>
-  </section>
-{% endif %}
-
-{% if services %}
-  <section class="wrap section reveal">
-    <div class="sec-head"><span class="sec-num">02</span><h2 class="big">{% trans "What we treat" %}</h2></div>
-    <div class="cards">
-      {% for service in services %}
-        <article class="card">
-          {% if service.icon %}<span class="card-icon" aria-hidden="true">{{ service.icon }}</span>{% endif %}
-          <h3>{{ service.name }}</h3>
-          {% if service.name_marathi %}<p class="mr">{{ service.name_marathi }}</p>{% endif %}
-          {% if service.description %}<p>{{ service.description }}</p>{% endif %}
-        </article>
-      {% endfor %}
+  <section class="band">
+    <div class="wrap">
+      <p class="rail">{% trans "The hospital" %}<small>{% trans "रुग्णालयाविषयी" %}</small></p>
+      <div class="col body">{{ hospital.about_text|linebreaks }}</div>
     </div>
   </section>
 {% endif %}
 
 {% if doctors %}
-  <section class="wrap section reveal">
-    <div class="sec-head"><span class="sec-num">03</span><h2 class="big">{% trans "Our doctors" %}</h2></div>
-    <div class="cards">
-      {% for doctor in doctors %}
-        <article class="card">
-          <span class="avatar" aria-hidden="true">{{ doctor.display_name|slice:":1" }}</span>
-          <h3>{{ doctor.display_name }}</h3>
-          {% if doctor.qualifications %}<p class="quals">{{ doctor.qualifications }}</p>{% endif %}
-          {% if doctor.specialty %}<p class="specialty">{{ doctor.specialty }}</p>{% endif %}
-        </article>
-      {% endfor %}
+  <section class="band">
+    <div class="wrap">
+      <p class="rail">{% trans "Doctors" %}<small>{% trans "डॉक्टर" %}</small></p>
+      <div class="col">
+        {% for doctor in doctors %}
+          <article class="prescriber">
+            <h3>{{ doctor.display_name }}</h3>
+            {% if doctor.qualifications %}<p class="degrees">{{ doctor.qualifications }}</p>{% endif %}
+            <p class="reg">
+              {% if doctor.specialty %}{{ doctor.specialty }}{% endif %}
+              {% if doctor.registration_number %} · {% trans "Reg." %} {{ doctor.registration_number }}{% endif %}
+            </p>
+          </article>
+        {% endfor %}
+      </div>
     </div>
-    <a class="link-more" href="{% url 'site:doctors' %}">{% trans "See all doctors" %} →</a>
   </section>
 {% endif %}
 
-<section class="wrap section reveal">
-  <div class="sec-head"><span class="sec-num">04</span><h2 class="big">{% trans "Visit us" %}</h2></div>
-  {% if hospital.full_address %}<p class="prose">{{ hospital.full_address }}</p>{% endif %}
-  <div class="hero-actions" style="justify-content:flex-start;margin-top:1.8rem">
-    <a class="btn btn-ghost" target="_blank" rel="noopener noreferrer"
-       href="https://www.google.com/maps/search/?api=1&amp;query={{ hospital.directions_query|urlencode }}">
-      {% trans "Get directions" %}
-    </a>
-    {% if booking_open %}<a class="btn btn-primary" href="{% url 'site:book' %}">{% trans "Book an appointment" %}</a>{% endif %}
+{% if services %}
+  <section class="band">
+    <div class="wrap">
+      <p class="rail">{% trans "Departments" %}<small>{% trans "विभाग" %}</small></p>
+      <div class="col">
+        <ul class="listing">
+          {% for service in services %}
+            <li>
+              <span class="name">{{ service.name }}{% if service.name_marathi %}<i>{{ service.name_marathi }}</i>{% endif %}</span>
+              {% if service.description %}<span class="desc">{{ service.description }}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </section>
+{% endif %}
+
+<section class="band">
+  <div class="wrap">
+    <p class="rail">{% trans "Where" %}<small>{% trans "पत्ता" %}</small></p>
+    <div class="col">
+      <h2 class="head">{{ hospital.address_line }}</h2>
+      {% if hospital.city %}<p class="body">{{ hospital.city }}, {{ hospital.state }} {{ hospital.pincode }}</p>{% endif %}
+      <div class="actions">
+        <a class="btn btn-line" target="_blank" rel="noopener noreferrer"
+           href="https://www.google.com/maps/search/?api=1&amp;query={{ hospital.directions_query|urlencode }}">{% trans "Open in Maps" %}</a>
+      </div>
+    </div>
   </div>
 </section>
 {% endblock %}

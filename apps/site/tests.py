@@ -416,6 +416,67 @@ class PublicHostIsolationTests(TestCase):
         self.assertContains(lan, "Staff sign in")
 
 
+class OpdBoardTests(TestCase):
+    """The published board is safety-critical: someone reads it and decides
+    when to travel to the hospital. It is generated from the booking engine's
+    own constants so it cannot drift from what booking will accept."""
+
+    def setUp(self):
+        make_doctor()
+
+    def _rows(self):
+        """The board's data rows, keyed by day. Scoped to <tbody> so trailing
+        prose that happens to mention a weekday cannot be mistaken for a row."""
+        import re
+
+        body = self.client.get(reverse("site:home")).content.decode()
+        tbody = re.search(r"<tbody>(.*?)</tbody>", body, re.S).group(1)
+        rows = {}
+        for chunk in re.findall(r"<tr>(.*?)</tr>", tbody, re.S):
+            day = re.search(r'class="day">([A-Za-z]+)', chunk)
+            if day:
+                rows[day.group(1)] = chunk
+        return rows
+
+    def test_board_states_closed_evenings_in_words(self):
+        """It used to strike through the normal time, and the 1px line vanished
+        at reading size — you would read 18:00-22:00 and travel on a Tuesday."""
+        rows = self._rows()
+        for day in ("Tuesday", "Saturday"):
+            self.assertIn("Closed", rows[day], f"{day} evening does not say Closed")
+            self.assertIn("बंद", rows[day])
+            self.assertNotIn("18:00–22:00", rows[day],
+                             f"{day} still shows an evening time a patient could act on")
+
+    def test_board_shows_open_evenings_as_times(self):
+        rows = self._rows()
+        for day in ("Monday", "Wednesday", "Thursday", "Friday", "Sunday"):
+            self.assertIn("18:00–22:00", rows[day])
+            self.assertNotIn("Closed", rows[day])
+
+    def test_board_lists_every_day_once(self):
+        self.assertEqual(len(self._rows()), 7)
+
+    def test_board_matches_what_booking_will_accept(self):
+        """Every day the board calls open must actually be bookable, and every
+        day it calls closed must be refused."""
+        from datetime import timedelta
+
+        from apps.opd import booking
+
+        board = {r["en"]: r["evening"] for r in booking.weekly_timetable()}
+        day = timezone.localdate() + timedelta(days=1)
+        for _ in range(7):
+            name = booking.WEEKDAYS[day.weekday()][0]
+            offered = {s["key"] for s in
+                       booking.available_sessions("Madhu", day.isoformat())["sessions"]}
+            self.assertEqual(
+                "evening" in offered, board[name],
+                f"board and booking disagree about {name} evening",
+            )
+            day += timedelta(days=1)
+
+
 class TemplateHygieneTests(TestCase):
     """Django's {# #} comment cannot span lines — a multi-line one is not a
     comment at all, it renders to the visitor as literal text. This shipped

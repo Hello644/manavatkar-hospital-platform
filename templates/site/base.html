@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ hospital.name }}{% endblock %}</title>
-  <meta name="description" content="{% block description %}{{ hospital.name }}{% if hospital.city %} — {{ hospital.city }}, {{ hospital.state }}{% endif %}. {{ hospital.tagline }}{% endblock %}">
-  <meta name="theme-color" content="#04070d">
+  <title>{% block title %}{{ hospital.name }}{% if hospital.city %}, {{ hospital.city }}{% endif %}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{{ hospital.name }}{% if hospital.city %}, {{ hospital.city }}{% endif %}. OPD twice daily. Casualty open 24 hours.{% endblock %}">
+  <meta name="theme-color" content="#0e4a34">
   <link rel="stylesheet" href="{% static 'css/site.css' %}">
   <script type="application/ld+json">
   {
@@ -13,7 +13,7 @@
     "@type": "Hospital",
     "name": "{{ hospital.name|escapejs }}",
     "telephone": "{{ hospital.phone|escapejs }}",
-    "availableService": {"@type": "MedicalProcedure", "name": "24-hour emergency"},
+    "availableService": {"@type": "MedicalProcedure", "name": "24-hour casualty"},
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "{{ hospital.address_line|escapejs }}",
@@ -29,41 +29,48 @@
   <a class="skip" href="#main">{% trans "Skip to content" %}</a>
 
   {% comment %}
-    Casualty runs 24/7, so it gets the top strip on every page — the one thing a
-    frightened visitor at 3am must not have to hunt for.
+    Casualty runs through the night, so it sits above the masthead on every
+    page. Vermilion appears here and nowhere else on the site: in Indian
+    medical signage red means emergency, and spending it on a button would
+    make casualty harder to find at 3am.
   {% endcomment %}
-  <div class="emg-bar">
+  <div class="emg">
     <div class="wrap">
-      <span class="dot" aria-hidden="true"></span>
-      <span>{% trans "EMERGENCY OPEN 24 HOURS" %} · {% trans "अपघात विभाग २४ तास" %}</span>
-      {% if hospital.emergency_phone %}
-        <a href="tel:{{ hospital.emergency_phone }}">{{ hospital.emergency_phone }}</a>
-      {% elif hospital.phone %}
-        <a href="tel:{{ hospital.phone }}">{{ hospital.phone }}</a>
-      {% endif %}
+      <span class="emg-label">{% trans "Emergency" %} · {% trans "अपघात विभाग" %}</span>
+      <span class="emg-text">
+        <b>{% trans "Open 24 hours, every day" %}</b>
+        {% if hospital.emergency_phone %}
+          · <a href="tel:{{ hospital.emergency_phone }}">{{ hospital.emergency_phone }}</a>
+        {% elif hospital.phone %}
+          · <a href="tel:{{ hospital.phone }}">{{ hospital.phone }}</a>
+        {% endif %}
+      </span>
     </div>
   </div>
 
-  <header class="site-header">
-    <div class="wrap header-inner">
-      <a class="logo" href="{% url 'site:home' %}">
-        <span class="logo-mark" aria-hidden="true">✚</span>
-        <span class="logo-text">
-          <strong>{{ hospital.name }}</strong>
-          {% if hospital.name_marathi %}<em>{{ hospital.name_marathi }}</em>{% endif %}
-        </span>
-      </a>
-      <input type="checkbox" id="nav-toggle" class="nav-toggle" hidden>
-      <label for="nav-toggle" class="nav-button" aria-label="{% trans 'Menu' %}">☰</label>
-      <nav class="site-nav">
-        <a href="{% url 'site:home' %}">{% trans "Home" %}</a>
-        <a href="{% url 'site:doctors' %}">{% trans "Doctors" %}</a>
-        <a href="{% url 'site:services' %}">{% trans "Services" %}</a>
-        <a href="{% url 'site:contact' %}">{% trans "Contact" %}</a>
-        <a class="cta" href="{% url 'site:book' %}">{% trans "Book now" %}</a>
-      </nav>
+  {% comment %} The masthead is the hospital's letterhead, in the same order. {% endcomment %}
+  <header class="masthead">
+    <div class="wrap">
+      {% if hospital.name_marathi %}<p class="mast-mr">{{ hospital.name_marathi }}</p>{% endif %}
+      <p class="mast-en">{{ hospital.name }}</p>
+      {% if hospital.tagline %}<p class="mast-rule">{{ hospital.tagline }}</p>{% endif %}
+      <p class="mast-meta">
+        {% if hospital.address_line %}<span>{{ hospital.address_line }}</span>{% endif %}
+        {% if hospital.city %}<span>{{ hospital.city }}, {{ hospital.state }}{% if hospital.pincode %} {{ hospital.pincode }}{% endif %}</span>{% endif %}
+        {% if hospital.phone %}<span>{% trans "Reception" %} {{ hospital.phone }}</span>{% endif %}
+      </p>
     </div>
   </header>
+
+  <nav class="nav" aria-label="{% trans 'Main' %}">
+    <div class="wrap">
+      <a href="{% url 'site:home' %}"{% if page == 'home' %} aria-current="page"{% endif %}>{% trans "OPD hours" %}</a>
+      <a href="{% url 'site:doctors' %}"{% if page == 'doctors' %} aria-current="page"{% endif %}>{% trans "Doctors" %}</a>
+      <a href="{% url 'site:services' %}"{% if page == 'services' %} aria-current="page"{% endif %}>{% trans "Departments" %}</a>
+      <a href="{% url 'site:contact' %}"{% if page == 'contact' %} aria-current="page"{% endif %}>{% trans "Find us" %}</a>
+      <a class="nav-book" href="{% url 'site:book' %}"{% if page == 'book' %} aria-current="page"{% endif %}>{% trans "Book a sitting" %}</a>
+    </div>
+  </nav>
 
   <main id="main">
     {% if messages %}
@@ -74,46 +81,41 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="site-footer">
-    <div class="wrap footer-grid">
+  <footer class="foot">
+    <div class="wrap">
       <div>
-        <h3>{{ hospital.name }}</h3>
-        {% if hospital.full_address %}<p>{{ hospital.full_address }}</p>{% endif %}
+        <h4>{% trans "Address" %}</h4>
+        {% if hospital.address_line %}<p>{{ hospital.address_line }}</p>{% endif %}
+        {% if hospital.city %}<p>{{ hospital.city }}, {{ hospital.state }} {{ hospital.pincode }}</p>{% endif %}
+      </div>
+      <div>
+        <h4>{% trans "Telephone" %}</h4>
         {% if hospital.phone %}<p><a href="tel:{{ hospital.phone }}">{{ hospital.phone }}</a></p>{% endif %}
         {% if hospital.public_email %}<p><a href="mailto:{{ hospital.public_email }}">{{ hospital.public_email }}</a></p>{% endif %}
+        <p class="emg-line">{% trans "Casualty, 24 hours" %}</p>
       </div>
       <div>
-        <h3>{% trans "OPD timings" %}</h3>
-        <p>{{ hospital.opd_hours_text }}</p>
-        <p class="emergency">{% trans "Emergency" %}: {% trans "open 24 hours" %}</p>
+        <h4>{% trans "OPD" %}</h4>
+        <p>{% trans "Morning" %} {{ morning.start|time:"H:i" }}–{{ morning.end|time:"H:i" }}</p>
+        <p>{% trans "Evening" %} {{ evening.start|time:"H:i" }}–{{ evening.end|time:"H:i" }}</p>
+        <p>{% trans "No evening OPD on Tuesday or Saturday" %}</p>
       </div>
       <div>
-        <h3>{% trans "Quick links" %}</h3>
-        <p><a href="{% url 'site:doctors' %}">{% trans "Our doctors" %}</a></p>
-        <p><a href="{% url 'site:book' %}">{% trans "Book an appointment" %}</a></p>
+        <h4>{% trans "Pages" %}</h4>
+        <p><a href="{% url 'site:doctors' %}">{% trans "Doctors" %}</a></p>
+        <p><a href="{% url 'site:book' %}">{% trans "Book a sitting" %}</a></p>
         <p><a href="{% url 'site:contact' %}">{% trans "Find us" %}</a></p>
         {% comment %}
-          Staff sign-in is offered only on the hospital LAN. On the public domain
-          the clinical app is unreachable, so advertising it would be noise at
+          Staff sign-in appears only on the hospital LAN. On the public domain
+          the clinical system is unreachable, so linking it would be noise at
           best and a target at worst.
         {% endcomment %}
         {% if not is_public_host %}<p><a href="{% url 'login' %}">{% trans "Staff sign in" %}</a></p>{% endif %}
       </div>
     </div>
-    <div class="wrap footer-legal">
-      <p>&copy; {% now "Y" %} {{ hospital.name }}. {% trans "All rights reserved." %}</p>
+    <div class="wrap colophon">
+      <p>&copy; {% now "Y" %} {{ hospital.name }}{% if hospital.city %}, {{ hospital.city }}{% endif %}.</p>
     </div>
   </footer>
-
-  <script>
-    // Progressive enhancement only — everything is readable without it.
-    (function () {
-      if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      var io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-      }, { threshold: 0.12 });
-      document.querySelectorAll('.reveal').forEach(function (el) { io.observe(el); });
-    })();
-  </script>
 </body>
 </html>

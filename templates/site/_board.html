@@ -1,0 +1,37 @@
+{% load i18n %}
+{% comment %}
+  The OPD board. Rows come from apps.opd.booking.weekly_timetable(), the same
+  constants the booking engine checks against, so the wall board and the
+  bookable calendar cannot drift apart.
+{% endcomment %}
+<table class="board">
+  <caption>{% trans "OPD timings" %} · {% trans "बाह्यरुग्ण विभाग वेळ" %}</caption>
+  <thead>
+    <tr>
+      <th scope="col">{% trans "Day" %}</th>
+      <th scope="col">{% trans "Morning" %}</th>
+      <th scope="col">{% trans "Evening" %}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in timetable %}
+      <tr>
+        <th scope="row" class="day">{{ row.en }}<i>{{ row.mr }}</i></th>
+        <td class="open">{{ morning.start|time:"H:i" }}–{{ morning.end|time:"H:i" }}</td>
+        {% comment %}
+          A closed evening says so in words, in both languages. It used to show
+          the normal time struck through, and the 1px line vanished at reading
+          size — someone scanning the board would read "18:00-22:00" and arrive
+          on a Tuesday evening to a locked OPD.
+        {% endcomment %}
+        {% if row.evening %}
+          <td class="open">{{ evening.start|time:"H:i" }}–{{ evening.end|time:"H:i" }}</td>
+        {% else %}
+          <td class="shut">{% trans "Closed" %}<i>{% trans "बंद" %}</i></td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="board-note">{% trans "Come any time during a sitting. Reception gives you a token and the doctor sees patients in that order." %}</p>
+<p class="board-emg">{% trans "Casualty stays open 24 hours, including Tuesday and Saturday evenings." %}</p>

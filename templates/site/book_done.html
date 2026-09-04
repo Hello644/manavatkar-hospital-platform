@@ -1,43 +1,36 @@
 {% extends "site/base.html" %}
 {% load i18n %}
-
-{% block title %}{% trans "Appointment confirmed" %} · {{ hospital.name }}{% endblock %}
-
+{% block title %}{% trans "Booking confirmed" %} · {{ hospital.name }}{% endblock %}
 {% block content %}
-<section class="wrap section">
-  {% if confirmation %}
-    <div class="confirm-card">
-      <span class="tick" aria-hidden="true">✓</span>
-      <h1>{% trans "Appointment confirmed" %}</h1>
-      <dl class="confirm-details">
-        <dt>{% trans "Patient" %}</dt><dd>{{ confirmation.name }}</dd>
-        <dt>{% trans "Doctor" %}</dt><dd>{{ confirmation.doctor }}</dd>
-        <dt>{% trans "Date" %}</dt><dd>{{ confirmation.date }}</dd>
-        <dt>{% trans "Sitting" %}</dt><dd>{{ confirmation.sitting }} · {{ confirmation.time }}</dd>
-        {% if confirmation.fee %}<dt>{% trans "Consultation fee" %}</dt><dd>₹{{ confirmation.fee }}</dd>{% endif %}
-      </dl>
-      <p class="prose">
-        {% trans "Come any time during the sitting and report at the reception desk — you will be given a token and seen in turn. Bring any previous prescriptions or reports." %}
-      </p>
-      {% if hospital.phone %}
-        <p class="prose">
-          {% blocktrans with phone=hospital.phone %}To change or cancel, call {{ phone }}.{% endblocktrans %}
+<section class="band">
+  <div class="wrap">
+    <p class="rail">{% trans "Confirmed" %}<small>{% trans "नोंद झाली" %}</small></p>
+    <div class="col">
+      {% if confirmation %}
+        <div class="receipt">
+          <p class="receipt-head">{{ hospital.name }} · {% trans "OPD booking" %}</p>
+          <h1>{% trans "Your place is booked" %}</h1>
+          <dl>
+            <dt>{% trans "Patient" %}</dt><dd>{{ confirmation.name }}</dd>
+            <dt>{% trans "Doctor" %}</dt><dd>{{ confirmation.doctor }}</dd>
+            <dt>{% trans "Date" %}</dt><dd>{{ confirmation.date }}</dd>
+            <dt>{% trans "Sitting" %}</dt><dd>{{ confirmation.sitting }}, {{ confirmation.time }}</dd>
+            {% if confirmation.fee %}<dt>{% trans "Consultation" %}</dt><dd>₹{{ confirmation.fee|floatformat:"0" }}</dd>{% endif %}
+          </dl>
+          <p class="after">
+            {% trans "Come any time during the sitting and report at reception. You will be given a token and seen in that order. Bring earlier prescriptions and reports." %}
+            {% if hospital.phone %}{% blocktrans with phone=hospital.phone %} To change or cancel, call {{ phone }}.{% endblocktrans %}{% endif %}
+          </p>
+        </div>
+      {% else %}
+        <h2 class="head">{% trans "Nothing to show here" %}</h2>
+        <p class="empty">
+          {% trans "This confirmation has already been shown." %}
+          {% if hospital.phone %}{% blocktrans with phone=hospital.phone %}If you are unsure whether your booking went through, call {{ phone }}.{% endblocktrans %}{% endif %}
         </p>
       {% endif %}
+      <div class="actions"><a class="btn btn-line" href="{% url 'site:home' %}">{% trans "OPD hours" %}</a></div>
     </div>
-  {% else %}
-    {% comment %}
-      Reached directly, or a refresh after the session entry was consumed. Do
-      not re-render someone's appointment details on a bare GET.
-    {% endcomment %}
-    <h1>{% trans "Nothing to show" %}</h1>
-    <p class="prose">
-      {% trans "This confirmation has already been shown." %}
-      {% if hospital.phone %}
-        {% blocktrans with phone=hospital.phone %}If you are unsure whether your booking went through, please call {{ phone }}.{% endblocktrans %}
-      {% endif %}
-    </p>
-  {% endif %}
-  <p><a class="btn btn-ghost" href="{% url 'site:home' %}">{% trans "Back to home" %}</a></p>
+  </div>
 </section>
 {% endblock %}

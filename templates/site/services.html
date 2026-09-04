@@ -1,26 +1,26 @@
 {% extends "site/base.html" %}
 {% load i18n %}
-
-{% block title %}{% trans "Services" %} · {{ hospital.name }}{% endblock %}
-
+{% block title %}{% trans "Departments" %} · {{ hospital.name }}{% endblock %}
 {% block content %}
-<section class="wrap section">
-  <h1>{% trans "Services" %}</h1>
-  {% if services %}
-    <div class="cards">
-      {% for service in services %}
-        <article class="card">
-          {% if service.icon %}<span class="card-icon" aria-hidden="true">{{ service.icon }}</span>{% endif %}
-          <h2>{{ service.name }}</h2>
-          {% if service.name_marathi %}<p class="mr">{{ service.name_marathi }}</p>{% endif %}
-          {% if service.description %}<p>{{ service.description|linebreaksbr }}</p>{% endif %}
-        </article>
-      {% endfor %}
+<section class="band">
+  <div class="wrap">
+    <p class="rail">{% trans "Departments" %}<small>{% trans "विभाग" %}</small></p>
+    <div class="col">
+      {% if services %}
+        <ul class="listing">
+          {% for service in services %}
+            <li>
+              <span class="name">{{ service.name }}{% if service.name_marathi %}<i>{{ service.name_marathi }}</i>{% endif %}</span>
+              {% if service.description %}<span class="desc">{{ service.description|linebreaksbr }}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty">
+          {% blocktrans with phone=hospital.phone %}Department listings are being updated. Call {{ phone }} and reception will tell you what runs today.{% endblocktrans %}
+        </p>
+      {% endif %}
     </div>
-  {% else %}
-    <p class="prose">
-      {% blocktrans with phone=hospital.phone %}Our service list is being updated. Please call {{ phone }} and we will help you.{% endblocktrans %}
-    </p>
-  {% endif %}
+  </div>
 </section>
 {% endblock %}

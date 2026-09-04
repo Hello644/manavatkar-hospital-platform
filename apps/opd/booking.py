@@ -68,6 +68,31 @@ def sessions_for(on_date):
     return running
 
 
+# Marathi weekday names, for the bilingual OPD board on the public site.
+WEEKDAYS = [
+    ("Monday", "सोमवार"), ("Tuesday", "मंगळवार"), ("Wednesday", "बुधवार"),
+    ("Thursday", "गुरुवार"), ("Friday", "शुक्रवार"), ("Saturday", "शनिवार"),
+    ("Sunday", "रविवार"),
+]
+
+
+def weekly_timetable():
+    """The OPD board, generated from the same constants the booking engine uses.
+
+    The published hours and the hours the system will actually accept are the
+    same data, so the website cannot advertise a sitting that booking would
+    refuse. Change EVENING_CLOSED and the board changes with it.
+    """
+    rows = []
+    for index, (english, marathi) in enumerate(WEEKDAYS):
+        rows.append({
+            "en": english, "mr": marathi,
+            "morning": True,
+            "evening": index not in EVENING_CLOSED,
+        })
+    return rows
+
+
 def find_doctors(public_only=False):
     qs = DoctorProfile.objects.order_by("display_name")
     if public_only:
